@@ -44,7 +44,7 @@ function rateLimit(req, res, next) {
   if (now - h.t > 60000) { h.n = 0; h.t = now; }
   h.n++; hits.set(ip, h);
   if (hits.size > 20000) hits.clear();
-  if (h.n > 120) return res.status(429).json({ error: "too_many_requests" });
+  if (h.n > 400) return res.status(429).json({ error: "too_many_requests" });
   next();
 }
 

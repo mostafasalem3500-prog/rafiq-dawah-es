@@ -579,10 +579,10 @@
       const boxes = $$(".rv-refs"); const jobs = [];
       boxes.forEach(b => { b.innerHTML = ""; (b.dataset.q ? b.dataset.q.split(",") : []).forEach(r => jobs.push([b, "q", r])); (b.dataset.h ? b.dataset.h.split(",") : []).forEach(h => jobs.push([b, "h", h])); });
       let n = 0, fail = 0; $("#rv-fetch").disabled = true;
-      const work = async () => { while (jobs.length) { const [b, kind, v] = jobs.shift(); try {
+      const work = async () => { while (jobs.length) { const [b, kind, v, tries = 0] = jobs.shift(); try {
         if (kind === "q") { const d = await getQuran(v); b.insertAdjacentHTML("beforeend", `<div class="ref-box small"><b>📖 ${esc(v)}</b> <span class="ar-text quran" style="font-size:1.1rem">${esc(d.ayahs.map(a => a.arabic).join(" "))}</span><span class="es-text" lang="es">${esc(d.ayahs.map(a => a.text).join(" "))}</span><span class="src">${esc(d.translation.title)} v${esc(d.translation.version)}</span></div>`); }
         else { const d = await getHadith(v); b.insertAdjacentHTML("beforeend", `<div class="ref-box small"><b>📜 حديث ${esc(v)}: <span lang="es">${esc(d.title)}</span></b><p class="ar-text">${esc(d.ar.text)}</p><p class="es-text" lang="es">${esc(d.text)}</p><span class="grade">${esc(d.ar.grade || d.grade)} — ${esc(d.ar.attribution || d.attribution)}</span></div>`); }
-      } catch (e) { fail++; b.insertAdjacentHTML("beforeend", `<div class="notice amber small">تعذّر جلب ${kind === "q" ? "الآية" : "الحديث"} ${esc(v)}</div>`); } n++; $("#rv-status").textContent = `جُلب ${n} مرجعًا${fail ? `، وتعذّر ${fail}` : ""}`; } };
+      } catch (e) { if (tries < 2) { await new Promise(r => setTimeout(r, 4000)); jobs.push([b, kind, v, tries + 1]); continue; } fail++; b.insertAdjacentHTML("beforeend", `<div class="notice amber small">تعذّر جلب ${kind === "q" ? "الآية" : "الحديث"} ${esc(v)}</div>`); } n++; $("#rv-status").textContent = `جُلب ${n} مرجعًا${fail ? `، وتعذّر ${fail}` : ""}`; } };
       await Promise.all([work(), work(), work()]); $("#rv-fetch").disabled = false;
     };
   }
