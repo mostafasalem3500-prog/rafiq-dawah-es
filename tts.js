@@ -7,7 +7,17 @@ const path = require("path");
 
 const KEY = process.env.GEMINI_API_KEY || "";
 const MODEL = process.env.GEMINI_TTS_MODEL || "gemini-2.5-flash-preview-tts";
-const MODELS = [MODEL, "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"].filter((m, i, a) => a.indexOf(m) === i);
+let MODELS = [MODEL, "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"].filter((m, i, a) => a.indexOf(m) === i);
+let ttsModelsAt = 0;
+async function discoverTts() {
+  if (!KEY || Date.now() - ttsModelsAt < 6 * 3600 * 1000) return; ttsModelsAt = Date.now();
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": KEY } }); const j = await r.json(); if (!r.ok) return;
+    const tts = (j.models || []).map(m => m.name.replace(/^models\//, "")).filter(n => /tts/.test(n)).sort((a, b) => (/flash/.test(b) - /flash/.test(a)) || b.localeCompare(a));
+    if (tts.length) MODELS = [MODEL, ...tts].filter((m, i, a) => a.indexOf(m) === i && (m !== MODEL || tts.includes(m)));
+    console.log("tts models:", MODELS.join(", "));
+  } catch (e) { }
+}
 const DAILY = Number(process.env.TTS_DAILY_LIMIT || 1500);
 
 /* presets: [id, Arabic label, gender, Gemini voice, accent instruction] */
@@ -37,7 +47,7 @@ async function synth(text, v) {
   const prompt = lang === "es"
     ? `Lee en voz alta en español, con voz natural, cálida y pausada ${v[4]}. Lee exactamente este texto, sin añadir nada:\n${text}`
     : `اقرأ النص التالي بالعربية الفصحى بصوت طبيعي هادئ وواضح، كما هو دون أي زيادة:\n${text}`;
-  let lastErr;
+  let lastErr; await discoverTts();
   for (const model of MODELS) {
     try { return await synthOnce(model, prompt, v); }
     catch (e) { lastErr = e; if (!/demand|overload|unavailable|429|500|503|not found|timeout|aborted/i.test(String(e.message))) break; }
@@ -78,7 +88,7 @@ function mount(app) {
     const v = BYID.get(String(req.query.v || ""));
     if (!text || text.length > 600) return res.status(400).json({ error: "bad_text" });
     if (!v) return res.status(400).json({ error: "bad_voice" });
-    const k = crypto.createHash("sha1").update(`${MODEL}|${v[0]}|${text}`).digest("hex");
+    const k = crypto.createHash("sha1").update(`${v[0]}|${text}`).digest("hex");
     const send = b => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("Content-Length", b.length); res.end(b); };
     const hit = await cached(k); if (hit) return send(hit);
     if (!KEY) return res.status(503).json({ error: "disabled" });

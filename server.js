@@ -160,7 +160,24 @@ function geminiGate(req, res) {
   if (trDay.n >= TR_DAILY) { res.status(429).json({ error: "daily", message: "بلغ الموقع الحد اليومي لطلبات Gemini" }); return false; }
   return true;
 }
-const GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"].filter((m, i, a) => m && a.indexOf(m) === i);
+/* model discovery: Google retires model names often, so we ask the API which models this key can use */
+let GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
+let modelsAt = 0;
+const verOf = n => { const m = /gemini-(\d+(?:\.\d+)?)/.exec(n); return m ? parseFloat(m[1]) : 0; };
+async function discoverModels() {
+  if (!GEMINI_KEY || Date.now() - modelsAt < 6 * 3600 * 1000) return;
+  modelsAt = Date.now();
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": GEMINI_KEY } });
+    const j = await r.json(); if (!r.ok) return;
+    const ok = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""))
+      .filter(n => /^gemini-/.test(n) && /flash/.test(n) && !/tts|image|live|audio|embed|thinking|exp|preview-\d\d-\d\d/.test(n));
+    const ranked = ok.sort((a, b) => (verOf(b) - verOf(a)) || (/lite/.test(a) - /lite/.test(b)));
+    GEMINI_FALLBACKS = [GEMINI_MODEL, ...ranked.filter(n => !/lite/.test(n)).slice(0, 3), ...ranked.filter(n => /lite/.test(n)).slice(0, 2), "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
+    console.log("gemini models:", GEMINI_FALLBACKS.join(", "));
+  } catch (e) { console.error("gemini models discovery", e.message); }
+}
+discoverModels();
 let geminiPreferred = null; // last model that answered successfully
 async function geminiOnce(model, system, user, temperature) {
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
@@ -178,7 +195,7 @@ async function geminiOnce(model, system, user, temperature) {
   finally { clearTimeout(to); }
 }
 async function gemini(system, user, temperature = 0.2) {
-  trDay.n++;
+  trDay.n++; await discoverModels();
   const order = geminiPreferred ? [geminiPreferred, ...GEMINI_FALLBACKS.filter(m => m !== geminiPreferred)] : GEMINI_FALLBACKS;
   let last;
   for (const m of order) {
@@ -204,7 +221,7 @@ app.post("/api/tutor", async (req, res) => {
   try { const out = await gemini(TUTOR_SYSTEM, `Modo: ${m}. Nivel del alumno: ${lv}.\n\n${t}`, 0.3); const result = { text: out, model: GEMINI_MODEL }; cacheSet(ck, result); res.setHeader("Cache-Control", "no-store"); res.json(result); }
   catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
 });
-app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY, model: GEMINI_KEY ? GEMINI_MODEL : null }));
+app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY, model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : null, models: GEMINI_KEY ? GEMINI_FALLBACKS : [] }));
 app.post("/api/translate", async (req, res) => {
   const { text, dir, tone } = req.body || {};
   const t = String(text || "").trim();
