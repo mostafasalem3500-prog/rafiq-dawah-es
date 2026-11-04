@@ -213,7 +213,7 @@ app.post("/api/translate", async (req, res) => {
 
 /* IslamHouse document text (PDF → text) for reading and quoting; restricted to IslamHouse Spanish files */
 const pdfParse = require("pdf-parse/lib/pdf-parse.js");
-app.get("/api/ih/text", async (req, res) => {
+app.get("/api/ihtext", async (req, res) => {
   const u = String(req.query.u || "");
   if (!/^https:\/\/d1\.islamhouse\.com\/data\/es\/[\w\/.\-%]+\.pdf$/i.test(u)) return res.status(400).json({ error: "bad_url" });
   const key = "pdf:" + u; const hit = cacheGet(key, 30 * DAY); if (hit) return send(res, hit, 86400);
