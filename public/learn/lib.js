@@ -4,7 +4,7 @@
   const PERSONS = ["yo", "tú", "él / ella / usted", "nosotros", "vosotros", "ellos / ustedes"];
   const TENSES = [
     ["pres", "المضارع (Presente)"], ["pret", "الماضي البسيط (Indefinido)"], ["impf", "الماضي الناقص (Imperfecto)"], ["perf", "الماضي القريب (Perfecto)"],
-    ["fut", "المستقبل (Futuro)"], ["cond", "الشرطي (Condicional)"], ["subj", "المضارع الشرطي (Subjuntivo)"]
+    ["fut", "المستقبل (Futuro)"], ["cond", "الشرطي (Condicional)"], ["subj", "مضارع صيغة الاحتمال (Subjuntivo)"]
   ];
   const END = {
     pres: { ar: ["o", "as", "a", "amos", "áis", "an"], er: ["o", "es", "e", "emos", "éis", "en"], ir: ["o", "es", "e", "imos", "ís", "en"] },

@@ -5,9 +5,9 @@ LEARN.UNITS = (LEARN.UNITS || []).concat([
   id: "a2-01", lv: "A2", ic: "🩺", t: "El cuerpo y la salud", tar: "الجسم والصحة",
   goal: "أن تصف ما يؤلمك عند الطبيب أو في الصيدلية.",
   w: ["la cabeza|الرأس|🧠", "la mano|اليد|✋", "el pie|القدم|🦶", "el estómago|المعدة|🫃", "la espalda|الظهر|🧍", "los ojos|العينان|👀", "el médico|الطبيب|🧑‍⚕️", "la fiebre|الحُمّى|🤒", "la pastilla|الحبّة (دواء)|💊", "enfermo|مريض|🤧", "la cita|الموعد|📅", "doler|يؤلم|🤕"],
-  g: { t: "الفعل doler (يؤلم) مثل gustar", b: ["doler يعمل مثل gustar: Me duele la cabeza = يؤلمني رأسي.", "إذا كان العضو جمعًا: Me duelen los pies.", "يتغير جذره o → ue: duele، duelen.", "مع أعضاء الجسم نستعمل أداة التعريف لا الملكية: Me duele la espalda (لا mi espalda).", "tener + اسم: tengo fiebre، tengo tos (سعال)، tengo gripe (زكام)."], ex: ["Me duele mucho el estómago.|تؤلمني معدتي كثيرًا.", "A mi hijo le duelen los oídos.|ابني تؤلمه أذناه.", "Tengo fiebre desde ayer.|عندي حمى منذ أمس."] },
+  g: { t: "الفعل doler (يؤلم) مثل gustar", b: ["doler يعمل مثل gustar: Me duele la cabeza = يؤلمني رأسي.", "إذا كان العضو جمعًا: Me duelen los pies.", "يتغير جذره o → ue: duele، duelen.", "مع أعضاء الجسم نستعمل أداة التعريف لا الملكية: Me duele la espalda (لا mi espalda).", "tener + اسم: tengo fiebre، tengo tos (سعال)، tengo gripe (إنفلونزا)."], ex: ["Me duele mucho el estómago.|تؤلمني معدتي كثيرًا.", "A mi hijo le duelen los oídos.|ابني تؤلمه أذناه.", "Tengo fiebre desde ayer.|عندي حمى منذ أمس."] },
   s: ["No me siento bien.|لا أشعر أنني بخير.", "Necesito ver a un médico.|أحتاج أن أرى طبيبًا.", "¿Tiene algo para el dolor de cabeza?|هل عندك شيء لصداع الرأس؟", "Tome una pastilla cada ocho horas.|خذ حبة كل ثماني ساعات.", "¿Es usted alérgico a algo?|هل لديك حساسية من شيء؟", "Quiero pedir una cita.|أريد أن أحجز موعدًا."],
-  d: ["A:Buenos días, ¿qué le pasa?|صباح الخير، ما بك؟", "B:Me duele la garganta y tengo fiebre.|يؤلمني حلقي وعندي حمى.", "A:¿Desde cuándo?|منذ متى؟", "B:Desde hace dos días.|منذ يومين.", "A:Es una gripe. Beba mucha agua y descanse.|إنه زكام. اشرب ماءً كثيرًا واسترح.", "B:¿Necesito alguna medicina?|هل أحتاج دواءً؟", "A:Sí, tome este jarabe tres veces al día.|نعم، خذ هذا الشراب ثلاث مرات يوميًا."],
+  d: ["A:Buenos días, ¿qué le pasa?|صباح الخير، ما بك؟", "B:Me duele la garganta y tengo fiebre.|يؤلمني حلقي وعندي حمى.", "A:¿Desde cuándo?|منذ متى؟", "B:Desde hace dos días.|منذ يومين.", "A:Es una gripe. Beba mucha agua y descanse.|إنها إنفلونزا. اشرب ماءً كثيرًا واسترح.", "B:¿Necesito alguna medicina?|هل أحتاج دواءً؟", "A:Sí, tome este jarabe tres veces al día.|نعم، خذ هذا الشراب ثلاث مرات يوميًا."],
   tip: "رقم الطوارئ في إسبانيا ودول الاتحاد الأوروبي 112، وفي المكسيك 911."
 },
 {
@@ -38,7 +38,7 @@ LEARN.UNITS = (LEARN.UNITS || []).concat([
   tip: "piso في إسبانيا = شقة، وفي أمريكا اللاتينية يقولون departamento أو apartamento."
 },
 {
-  id: "a2-05", lv: "A2", ic: "🧳", t: "¿Qué hiciste? (pretérito indefinido)", tar: "ماذا فعلت؟ الماضي التام",
+  id: "a2-05", lv: "A2", ic: "🧳", t: "¿Qué hiciste? (pretérito indefinido)", tar: "ماذا فعلت؟ الماضي البسيط",
   goal: "أن تحكي ما فعلته أمس أو في رحلة سابقة.",
   w: ["ayer|أمس|⏮️", "anoche|ليلة أمس|🌃", "la semana pasada|الأسبوع الماضي|🗓️", "el año pasado|العام الماضي|📆", "hace dos días|منذ يومين|⏳", "viajar|يسافر|🧳", "visitar|يزور|🏛️", "comprar|يشتري|🛍️", "conocer|يتعرّف على|🤝", "llegar|يصل|🛬", "salir|يخرج / يغادر|🚪", "el viaje|الرحلة|🗺️"],
   g: { t: "الماضي البسيط (indefinido) لحدث منتهٍ", b: ["‑ar (viajar): viajé، viajaste، viajó، viajamos، viajasteis، viajaron.", "‑er/‑ir (comer/salir): comí، comiste، comió، comimos، comisteis، comieron.", "شواذ مهمة: ir وser لهما الصيغة نفسها: fui، fuiste، fue، fuimos، fuisteis، fueron.", "hacer: hice، hiciste، hizo، hicimos، hicisteis، hicieron. tener: tuve... estar: estuve...", "انتبه للنبرة: hablo (أتكلم) ≠ habló (تكلّم)."], ex: ["Ayer visité a mis abuelos.|أمس زرت جدّيّ.", "El año pasado fuimos a Granada.|العام الماضي ذهبنا إلى غرناطة.", "¿Qué hiciste el fin de semana?|ماذا فعلت في عطلة الأسبوع؟"] },

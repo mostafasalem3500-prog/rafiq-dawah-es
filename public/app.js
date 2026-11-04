@@ -152,7 +152,7 @@
     return `<section class="hero"><h1>ماذا أمامك الآن؟</h1><p>اختر الموقف الذي تمر به مع محاورك، فيعطيك الموقع خطة ورسالة بالإسبانية مع معناها ونطقها، وآيات وأحاديث من مصادرها كما هي.</p>
       <div class="situ-grid">${RQ.SITU.map(s => `<a class="btn" href="#componer/${s.id}">${esc(s.ar)}</a>`).join("")}</div>
       <div class="row"><a class="btn primary" href="#componer">افتح المُركِّب</a><a class="btn" href="#analizar">الصق رسالة من المحاور</a><a class="btn" href="#guia">ابدأ من دليل الداعية</a></div></section>
-      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🇪🇸</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">35 درسًا من A1 إلى C1، ومسار «الإسبانية للداعية»، بالصوت والمحادثات والتمارين والمراجعة الذكية، ويناسب كل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
+      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🗣️</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">35 درسًا من A1 إلى C1، ومسار «الإسبانية للداعية»، بالصوت والمحادثات والتمارين والمراجعة الذكية، ويناسب كل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
       <div class="stats">${[[RQ.MSG.length, "رسالة قصيرة"], [RQ.DLG.length, "قالب محادثة"], [RQ.ART.length, "مقالة قصيرة"], [RQ.COURSE.length, "لقاءً في المنهج"], [RQ.WARN.length, "تحذيرًا للداعية"]].map(s => `<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("")}</div>
       <div class="two"><div><h2 style="margin-bottom:10px">رسالة اليوم</h2>${msgCard(m)}</div>
       <div class="card"><h2>كيف يعمل الموقع؟</h2><ol class="steps"><li><b>المُركِّب</b> يفهم نوع محاورك ومرحلته وموقفه، ويجمع لك خطة ورسالة ومحادثة.</li><li><b>حلّل رسالة المحاور</b>: الصق ما كتبه بالإسبانية، فيكشف الموضوع ويحذّرك من المزالق.</li><li><b>النطق</b> بأكثر من لهجة إسبانية وبسرعة تتحكم فيها، للداعية مهما كانت خبرته.</li><li><b>المكتبة</b> تجلب الآيات من QuranEnc والأحاديث من HadeethEnc والكتب من IslamHouse.</li><li><b>التحذيرات</b> تحميك من المواضيع التي تُخسرك الباحث عن الحقيقة.</li></ol></div></div>`;
@@ -595,7 +595,7 @@
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
     const files = ["lib", "a1", "a2", "b1", "c1", "extra", "engine"];
-    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=1`; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); })), Promise.resolve());
+    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=2`; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;
   }

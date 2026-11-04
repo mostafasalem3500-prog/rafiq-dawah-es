@@ -13,7 +13,7 @@ LEARN.UNITS = (LEARN.UNITS || []).concat([
 {
   id: "a1-02", lv: "A1", ic: "🪪", t: "Presentarse", tar: "التعريف بنفسك",
   goal: "أن تقول اسمك وبلدك ولغتك وتسأل الآخر عنها.",
-  w: ["el nombre|الاسم|🏷️", "me llamo|اسمي|🙋", "soy|أنا (أكون)|👤", "el país|البلد|🗺️", "la ciudad|المدينة|🏙️", "el idioma|اللغة|🗣️", "árabe|عربي / العربية|🇸🇦", "español|إسباني / الإسبانية|🇪🇸", "Egipto|مصر|🇪🇬", "Arabia Saudí|السعودية|🇸🇦", "México|المكسيك|🇲🇽", "hablar|يتكلم|💬"],
+  w: ["el nombre|الاسم|🏷️", "me llamo|اسمي|🙋", "soy|أنا (أكون)|👤", "el país|البلد|🗺️", "la ciudad|المدينة|🏙️", "el idioma|اللغة|🗣️", "árabe|عربي / العربية|📜", "español|إسباني / الإسبانية|💬", "Egipto|مصر|🏜️", "Arabia Saudí|السعودية|🌴", "México|المكسيك|🌮", "hablar|يتكلم|💬"],
   g: { t: "الفعل ser (يكون) للهوية والأصل", b: ["ser فعل شاذ مهم جدًا: yo soy، tú eres، él/ella/usted es، nosotros somos، vosotros sois، ellos/ustedes son.", "يُستعمل للاسم والجنسية والأصل والمهنة: Soy Ahmed. Soy de Egipto.", "للسؤال عن الأصل: ¿De dónde eres? والجواب: Soy de...", "الضمير غالبًا يُحذف لأن نهاية الفعل تدل عليه: Soy egipcio = Yo soy egipcio."], ex: ["Soy Fátima y soy de Marruecos.|أنا فاطمة ومن المغرب.", "¿De dónde es usted?|من أين حضرتك؟", "Somos estudiantes.|نحن طلاب."] },
   s: ["Me llamo Ahmed.|اسمي أحمد.", "¿Cómo te llamas?|ما اسمك؟", "Soy de Arabia Saudí.|أنا من السعودية.", "Vivo en Makkah.|أعيش في مكة.", "Hablo árabe y un poco de español.|أتكلم العربية وقليلًا من الإسبانية.", "Encantado de conocerte.|سعيد بمعرفتك."],
   d: ["A:Hola, me llamo Lucía. ¿Y tú?|مرحبًا، اسمي لوثيا. وأنت؟", "B:Me llamo Omar. Encantado.|اسمي عمر. تشرفت.", "A:¿De dónde eres, Omar?|من أين أنت يا عمر؟", "B:Soy de Egipto, pero vivo en Madrid.|أنا من مصر، لكني أعيش في مدريد.", "A:¡Hablas español muy bien!|تتكلم الإسبانية جيدًا جدًا!", "B:Gracias, estudio todos los días.|شكرًا، أدرس كل يوم."],
@@ -22,10 +22,10 @@ LEARN.UNITS = (LEARN.UNITS || []).concat([
 {
   id: "a1-03", lv: "A1", ic: "🔢", t: "Los números y la edad", tar: "الأرقام والعمر",
   goal: "أن تعدّ من 0 إلى 20 وتسأل عن العمر ورقم الهاتف.",
-  w: ["cero|صفر|0️⃣", "uno|واحد|1️⃣", "dos|اثنان|2️⃣", "tres|ثلاثة|3️⃣", "cuatro|أربعة|4️⃣", "cinco|خمسة|5️⃣", "seis|ستة|6️⃣", "siete|سبعة|7️⃣", "ocho|ثمانية|8️⃣", "nueve|تسعة|9️⃣", "diez|عشرة|🔟", "veinte|عشرون|💯"],
+  w: ["cero|صفر|0️⃣", "uno|واحد|1️⃣", "dos|اثنان|2️⃣", "tres|ثلاثة|3️⃣", "cuatro|أربعة|4️⃣", "cinco|خمسة|5️⃣", "seis|ستة|6️⃣", "siete|سبعة|7️⃣", "ocho|ثمانية|8️⃣", "nueve|تسعة|9️⃣", "diez|عشرة|🔟", "veinte|عشرون|2️⃣0️⃣"],
   g: { t: "العمر بالفعل tener (يملك)", b: ["في الإسبانية تقول «عندي سنوات» لا «عمري»: Tengo 25 años.", "tener: tengo، tienes، tiene، tenemos، tenéis، tienen.", "الأرقام 11–15: once، doce، trece، catorce، quince؛ و16–19: dieciséis، diecisiete، dieciocho، diecinueve.", "uno يصير un قبل الاسم المذكر: un libro، ويصير una قبل المؤنث: una casa."], ex: ["¿Cuántos años tienes?|كم عمرك؟", "Tengo treinta años.|عمري ثلاثون سنة.", "Mi hijo tiene doce años.|ابني عمره اثنتا عشرة سنة."] },
   s: ["Tengo dos hermanos.|عندي أخوان.", "¿Cuál es tu número de teléfono?|ما رقم هاتفك؟", "Es el cinco, cinco, cero, uno.|إنه خمسة خمسة صفر واحد.", "Tengo veinte años.|عمري عشرون سنة.", "Hay diez libros en la mesa.|توجد عشرة كتب على الطاولة.", "Mi abuela tiene ochenta años.|جدتي عمرها ثمانون سنة."],
-  d: ["A:¿Cuántos años tienes?|كم عمرك؟", "B:Tengo dieciocho años. ¿Y tú?|عمري ثماني عشرة سنة. وأنت؟", "A:Yo tengo quince.|أنا خمس عشرة.", "B:¿Tienes hermanos?|هل عندك إخوة؟", "A:Sí, tengo tres hermanos.|نعم، عندي ثلاثة إخوة."],
+  d: ["A:¿Cuántos años tienes?|كم عمرك؟", "B:Tengo dieciocho años. ¿Y tú?|عمري ثماني عشرة سنة. وأنت؟", "A:Yo tengo quince.|وأنا عمري خمس عشرة سنة.", "B:¿Tienes hermanos?|هل عندك إخوة؟", "A:Sí, tengo tres hermanos.|نعم، عندي ثلاثة إخوة."],
   tip: "لا تخلط بين año (سنة) وano (كلمة غير لائقة)؛ علامة ñ تغيّر المعنى تمامًا."
 },
 {
