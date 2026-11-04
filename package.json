@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "check": "node scripts/check-data.js"
+    "check": "node scripts/check-data.js && node scripts/check-learn.js"
   },
   "engines": {
     "node": ">=20"

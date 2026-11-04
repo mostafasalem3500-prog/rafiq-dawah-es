@@ -149,43 +149,66 @@ Reglas estrictas:
 6. Nunca generes fatwas ni opiniones religiosas nuevas; si el texto pide una fatwa, tradúcelo tal cual.
 7. Al traducir del español al árabe usa árabe estándar claro.`;
 app.use("/api/translate", express.json({ limit: "20kb" }));
-app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY, model: GEMINI_KEY ? GEMINI_MODEL : null }));
-app.post("/api/translate", async (req, res) => {
-  if (!GEMINI_KEY) return res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY بعد" });
+/* shared Gemini call + per-IP / daily limits */
+function geminiGate(req, res) {
+  if (!GEMINI_KEY) { res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY بعد" }); return false; }
   const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
   const now = Date.now(); const h = (trHits.get(ip) || []).filter(t => now - t < 60000);
-  if (h.length >= 12) return res.status(429).json({ error: "rate", message: "طلبات كثيرة؛ انتظر دقيقة" });
+  if (h.length >= 12) { res.status(429).json({ error: "rate", message: "طلبات كثيرة؛ انتظر دقيقة" }); return false; }
   h.push(now); trHits.set(ip, h); if (trHits.size > 5000) trHits.clear();
   const day = new Date().toISOString().slice(0, 10); if (trDay.d !== day) trDay = { d: day, n: 0 };
-  if (trDay.n >= TR_DAILY) return res.status(429).json({ error: "daily", message: "بلغ الموقع الحد اليومي للترجمة" });
+  if (trDay.n >= TR_DAILY) { res.status(429).json({ error: "daily", message: "بلغ الموقع الحد اليومي لطلبات Gemini" }); return false; }
+  return true;
+}
+async function gemini(system, user, temperature = 0.2) {
+  trDay.n++;
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 25000);
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
+      method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature, maxOutputTokens: 4096 } })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { console.error("gemini", r.status, JSON.stringify(j).slice(0, 300)); throw new Error((j.error && j.error.message) || `Gemini HTTP ${r.status}`); }
+    const out = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
+    if (!out) throw new Error("لم يُرجع Gemini نصًّا (ربما حُجب الطلب)");
+    return out;
+  } catch (e) { throw new Error(e.name === "AbortError" ? "انتهت مهلة الاتصال بـ Gemini" : String(e.message || e)); }
+  finally { clearTimeout(to); }
+}
+const TUTOR_SYSTEM = `Eres «المعلّم», un profesor de español paciente y preciso para estudiantes cuya lengua materna es el árabe, dentro de una web de dawah sunní.
+- Responde SIEMPRE en árabe estándar sencillo; escribe los ejemplos en español entre comillas «...» y su traducción árabe.
+- Sé breve y claro: máximo 180 palabras, con viñetas cortas. Adapta el nivel al indicado (MCER).
+- Modo "explain": explica la regla o la palabra con 2–3 ejemplos.
+- Modo "correct": muestra primero la frase corregida entre «», luego enumera cada error y por qué, sin humillar al alumno.
+- Si la pregunta no trata del idioma español, di amablemente que solo ayudas con el español.
+- No emitas fatwas ni opiniones religiosas; para temas religiosos remite a un sabio de confianza.`;
+app.use("/api/tutor", express.json({ limit: "10kb" }));
+app.post("/api/tutor", async (req, res) => {
+  const { q, mode, level } = req.body || {}; const t = String(q || "").trim();
+  if (!t || t.length > 1500) return res.status(400).json({ error: "bad_text", message: "النص فارغ أو أطول من 1500 حرف" });
+  const lv = ["A1", "A2", "B1", "B2", "C1"].includes(level) ? level : "A1"; const m = mode === "correct" ? "correct" : "explain";
+  const ck = `tu:${m}:${lv}:${t}`; const cached = cacheGet(ck, 7 * DAY); if (cached) return res.json(cached);
+  if (!geminiGate(req, res)) return;
+  try { const out = await gemini(TUTOR_SYSTEM, `Modo: ${m}. Nivel del alumno: ${lv}.\n\n${t}`, 0.3); const result = { text: out, model: GEMINI_MODEL }; cacheSet(ck, result); res.setHeader("Cache-Control", "no-store"); res.json(result); }
+  catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
+});
+app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY, model: GEMINI_KEY ? GEMINI_MODEL : null }));
+app.post("/api/translate", async (req, res) => {
   const { text, dir, tone } = req.body || {};
   const t = String(text || "").trim();
   if (!t || t.length > 4000) return res.status(400).json({ error: "bad_text", message: "النص فارغ أو أطول من 4000 حرف" });
   if (!["es-ar", "ar-es"].includes(dir)) return res.status(400).json({ error: "bad_dir" });
-  const task = dir === "es-ar" ? "Traduce al árabe estándar el siguiente texto en español."
-    : `Traduce al español el siguiente texto en árabe. Trata al lector de ${tone === "usted" ? "usted (registro respetuoso)" : "tú (registro cercano y amable)"}.`;
   const ck = `tr:${dir}:${tone}:${t}`; const cached = cacheGet(ck, 7 * DAY);
   if (cached) return res.json(cached);
-  trDay.n++;
+  if (!geminiGate(req, res)) return;
+  const task = dir === "es-ar" ? "Traduce al árabe estándar el siguiente texto en español."
+    : `Traduce al español el siguiente texto en árabe. Trata al lector de ${tone === "usted" ? "usted (registro respetuoso)" : "tú (registro cercano y amable)"}.`;
   try {
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 25000);
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
-      method: "POST", signal: ctl.signal,
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: TR_SYSTEM }] },
-        contents: [{ role: "user", parts: [{ text: `${task}\n\n<<<\n${t}\n>>>` }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
-      })
-    });
-    clearTimeout(to);
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { console.error("gemini", r.status, JSON.stringify(j).slice(0, 300)); return res.status(502).json({ error: "gemini", message: (j.error && j.error.message) || `Gemini HTTP ${r.status}` }); }
-    const out = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim().replace(/^<<<\s*|\s*>>>$/g, "");
-    if (!out) return res.status(502).json({ error: "empty", message: "لم يُرجع Gemini ترجمة (ربما حُجب النص)" });
+    const out = (await gemini(TR_SYSTEM, `${task}\n\n<<<\n${t}\n>>>`)).replace(/^<<<\s*|\s*>>>$/g, "");
     const result = { text: out, model: GEMINI_MODEL, engine: "gemini" }; cacheSet(ck, result);
     res.setHeader("Cache-Control", "no-store"); res.json(result);
-  } catch (e) { res.status(502).json({ error: "gemini", message: e.name === "AbortError" ? "انتهت مهلة الاتصال بـ Gemini" : String(e.message || e) }); }
+  } catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
 });
 
 app.get("/healthz", (req, res) => res.json({ ok: true }));

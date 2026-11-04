@@ -152,6 +152,7 @@
     return `<section class="hero"><h1>ماذا أمامك الآن؟</h1><p>اختر الموقف الذي تمر به مع محاورك، فيعطيك الموقع خطة ورسالة بالإسبانية مع معناها ونطقها، وآيات وأحاديث من مصادرها كما هي.</p>
       <div class="situ-grid">${RQ.SITU.map(s => `<a class="btn" href="#componer/${s.id}">${esc(s.ar)}</a>`).join("")}</div>
       <div class="row"><a class="btn primary" href="#componer">افتح المُركِّب</a><a class="btn" href="#analizar">الصق رسالة من المحاور</a><a class="btn" href="#guia">ابدأ من دليل الداعية</a></div></section>
+      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🇪🇸</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">35 درسًا من A1 إلى C1، ومسار «الإسبانية للداعية»، بالصوت والمحادثات والتمارين والمراجعة الذكية، ويناسب كل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
       <div class="stats">${[[RQ.MSG.length, "رسالة قصيرة"], [RQ.DLG.length, "قالب محادثة"], [RQ.ART.length, "مقالة قصيرة"], [RQ.COURSE.length, "لقاءً في المنهج"], [RQ.WARN.length, "تحذيرًا للداعية"]].map(s => `<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("")}</div>
       <div class="two"><div><h2 style="margin-bottom:10px">رسالة اليوم</h2>${msgCard(m)}</div>
       <div class="card"><h2>كيف يعمل الموقع؟</h2><ol class="steps"><li><b>المُركِّب</b> يفهم نوع محاورك ومرحلته وموقفه، ويجمع لك خطة ورسالة ومحادثة.</li><li><b>حلّل رسالة المحاور</b>: الصق ما كتبه بالإسبانية، فيكشف الموضوع ويحذّرك من المزالق.</li><li><b>النطق</b> بأكثر من لهجة إسبانية وبسرعة تتحكم فيها، للداعية مهما كانت خبرته.</li><li><b>المكتبة</b> تجلب الآيات من QuranEnc والأحاديث من HadeethEnc والكتب من IslamHouse.</li><li><b>التحذيرات</b> تحميك من المواضيع التي تُخسرك الباحث عن الحقيقة.</li></ol></div></div>`;
@@ -587,11 +588,24 @@
     };
   }
 
+  /* ---------- Spanish course (lazy) ---------- */
+  V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
+  let learnP = null;
+  function loadLearn() {
+    if (window.LEARN && window.LEARN.mount) return Promise.resolve();
+    if (learnP) return learnP;
+    const files = ["lib", "a1", "a2", "b1", "c1", "extra", "engine"];
+    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=1`; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); })), Promise.resolve());
+    learnP.catch(() => { learnP = null; });
+    return learnP;
+  }
+  window.RAFIQ = { TTS, toast, copy, esc, head, S, saveS };
+
   /* ---------- router ---------- */
-  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "buscar"];
+  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "buscar"];
   function route() {
     const h = decodeURIComponent(location.hash.slice(1)); const [name0, ...rest] = h.split("/"); const name = ORDER.includes(name0) ? name0 : "inicio"; const arg = rest.join("/");
-    TTS.stop(); REG = new Map();
+    TTS.stop(); REG = new Map(); if ("speechSynthesis" in window) speechSynthesis.cancel();
     view.innerHTML = V[name](arg); view.classList.remove("fade"); void view.offsetWidth; view.classList.add("fade");
     $$("#nav a").forEach(a => { if (a.getAttribute("href") === "#" + name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     document.title = (name === "inicio" ? "" : ($(`#nav a[href="#${name}"]`)?.textContent || "بحث") + " — ") + "رفيق الداعية";
@@ -608,11 +622,12 @@
     if (name === "traducir") bindTrad();
     if (name === "tarjetas") bindCard(arg);
     if (name === "revision") bindRev();
+    if (name === "aprender") loadLearn().then(() => { if (location.hash.slice(1).split("/")[0] === "aprender") { window.LEARN.mount(view, arg); window.scrollTo({ top: 0 }); } }).catch(() => { view.innerHTML = `<p class="notice amber">تعذّر تحميل قسم التعلّم. تحقّق من الاتصال وأعد المحاولة.</p>`; });
     gemInit();
     if ((name === "avisos" || name === "guia") && arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "center" });
     if (name === "curso" && arg && $("#c" + arg)) $("#c" + arg).scrollIntoView({ block: "start" });
     if (name === "ideas" && arg === "series" && $("#series")) $("#series").scrollIntoView({ block: "start" });
-    if (!["mensajes", "avisos", "guia", "curso", "ideas"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
+    if (!["mensajes", "avisos", "guia", "curso", "ideas", "aprender"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
     $("#q").value = name === "buscar" ? decodeURIComponent(arg || "") : "";
   }
   window.addEventListener("hashchange", route);
