@@ -48,7 +48,7 @@ RQ.TAFSIR10 = {
   page: "https://islamhouse.com/es/books/314960/",
   files: [
     ["الكتاب كاملًا (PDF · 22.8 MB)", "https://d1.islamhouse.com/data/es/ih_books/single/es_Explanation_of_the_Last_Tenth_of_the_Quran.pdf"],
-    ["الجزء الثاني: الأحكام (PDF · 2.5 MB)", "https://d1.islamhouse.com/data/es/ih_books/single/es_Explanation_of_the_Last_Tenth_of_the_Quran_p2.pdf"],
+    ["ملف ملحق (PDF · 2.5 MB)", "https://d1.islamhouse.com/data/es/ih_books/single/es_Explanation_of_the_Last_Tenth_of_the_Quran_p2.pdf"],
     ["نسخة الطباعة (PDF · 69.7 MB)", "https://d1.islamhouse.com/data/es/ih_books/single/es_Explanation_of_the_Last_Tenth_of_the_Quran2.pdf"],
     ["الغلاف (PDF · 12 MB)", "https://d1.islamhouse.com/data/es/ih_books/single/es_Explanation_of_the_Last_Tenth_of_the_Quran_Cover.pdf"]
   ]

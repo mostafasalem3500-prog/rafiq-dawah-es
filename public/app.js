@@ -796,12 +796,11 @@
         <div class="q-cover" aria-hidden="true"><span class="q-cover-t">Exégesis del<br>último décimo<br>del Corán</span><span class="q-cover-s">IslamHouse</span></div>
         <div class="q-book-body"><span class="tag gold">كتاب مختار للداعية</span><h2>📗 ${T.ar}</h2><p lang="es" dir="ltr" class="es-text" style="text-align:start">${esc(T.title)}</p>
           <p class="muted small">${esc(T.by)}</p><p class="small">${esc(T.basis)}</p>
-          <div class="actions"><button type="button" class="primary" id="t10-read">📖 اقرأ الكتاب هنا وابحث فيه</button><button type="button" id="t10-p2">📑 اقرأ قسم الأحكام</button><button type="button" id="t10-tafsir">🔎 تفسير آيات العشر الأخير آيةً آية</button>
-          <a class="btn" href="${T.page}" target="_blank" rel="noopener">صفحة الكتاب في IslamHouse</a></div>
+          <div class="actions"><a class="btn primary" href="${T.files[0][1]}" target="_blank" rel="noopener">📖 افتح الكتاب (PDF)</a><button type="button" id="t10-tafsir">🔎 تفسير آيات العشر الأخير هنا آيةً آية</button><a class="btn" href="${T.page}" target="_blank" rel="noopener">صفحة الكتاب في IslamHouse</a></div>
+          <p class="muted small">صفحات التفسير في هذا الكتاب مصوّرة فلا يمكن استخراج نصها، لذا يفتح الكتاب في عارض PDF. وللقراءة داخل الموقع آيةً آية بالإسبانية نعرض «المختصر في تفسير القرآن الكريم» الصادر عن مركز تفسير للدراسات القرآنية عبر QuranEnc.</p>
           <details class="small"><summary>تحميل ملفات الكتاب (PDF)</summary><ul>${T.files.map(([n, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${n}</a></li>`).join("")}</ul></details>
           <div class="actions"><button type="button" data-act="copy" data-k="${reg({ es: `📗 ${T.title}\nPDF gratuito en español: ${T.page}\nFuente: IslamHouse.com` })}">نسخ رسالة بالإسبانية مع الرابط</button></div>
         </div></section>
-      <div id="t10-box"></div>
       <section class="card q-ctl">
         <div class="form">
           <div class="field"><label for="q-s">السورة</label><select id="q-s"><optgroup label="العشر الأخير (من المجادلة إلى الناس)">${RQ.SURAS.map((x, i) => i >= 57 ? opt(i) : "").join("")}</optgroup><optgroup label="من الفاتحة إلى الحديد">${RQ.SURAS.map((x, i) => i < 57 ? opt(i) : "").join("")}</optgroup></select></div>
@@ -817,8 +816,6 @@
   };
   async function bindQuran(arg) {
     const T = RQ.TAFSIR10; const [s0, a0] = String(arg || "").split("/"); let sura = Math.min(114, Math.max(1, parseInt(s0, 10) || 1));
-    $("#t10-read").onclick = () => openReaderFile({ title: T.title, url: T.page, file: T.files[0][1] }, $("#t10-box"));
-    $("#t10-p2").onclick = () => openReaderFile({ title: T.title + " (II)", url: T.page, file: T.files[1][1] }, $("#t10-box"));
     $("#t10-tafsir").onclick = () => { S.qtr = "spanish_mokhtasar"; saveS(); if (sura < 58) location.hash = "quran/58"; else { $("#q-t").value = S.qtr; load(); $("#q-out").scrollIntoView({ behavior: "smooth" }); } };
     $("#q-s").onchange = e => { location.hash = "quran/" + e.target.value; };
     $("#q-prev").onclick = () => { if (sura > 1) location.hash = "quran/" + (sura - 1); };
@@ -839,7 +836,7 @@
         out.innerHTML = `<section class="card q-sura"><header class="q-sh"><span class="q-sn">${arNum(sura)}</span><div><h2>سورة ${meta[0]}</h2><p class="muted small"><bdi lang="es">${meta[1]}</bdi> · ${meta[3] === "m" ? "مكية" : "مدنية"} · ${arNum(meta[2])} آية${sura >= 58 ? " · من العشر الأخير" : ""}</p></div><span class="tag">${tr[1]}</span></header>${bism}
           ${j.ayahs.map(a => { const ref = `${sura}:${a.aya}`; const cite = `${a.arabic}\n«${a.text}»\n(Corán ${ref}) — ${tr[2]}, QuranEnc.com`; return `<article class="q-aya" id="a-${a.aya}" data-aya="${a.aya}"><p class="q-ar" lang="ar" translate="no">${esc(a.arabic)} <span class="q-num">﴿${arNum(a.aya)}﴾</span></p><p class="q-es" lang="es" dir="ltr" translate="no"><b class="q-ref">${ref}</b> ${esc(a.text)}</p>${a.footnotes ? `<details class="q-fn small"><summary>${key === "spanish_mokhtasar" ? "فوائد وتعليقات" : "حواشي المترجم"}</summary><p lang="es" dir="ltr">${esc(a.footnotes)}</p></details>` : ""}
             <div class="actions"><button type="button" data-qplay="${a.aya}">▶ التلاوة</button><button type="button" data-act="say" data-k="${reg({ es: a.text })}">🔊 الإسبانية</button><button type="button" data-act="copy" data-k="${reg({ es: cite })}">نسخ مع المرجع</button><a class="btn" href="${wa(cite)}" target="_blank" rel="noopener">واتساب</a></div></article>`; }).join("")}
-          <p class="muted small">المصدر: <a href="${esc(j.url)}" target="_blank" rel="noopener">QuranEnc.com — ${esc(j.translation.title)}</a>${j.translation.version ? ` (الإصدار ${esc(j.translation.version)})` : ""}. لا تخلو ترجمة لمعاني القرآن من القصور؛ والترجمة تعبّر عن فهم مترجميها.</p></section>`;
+          <p class="muted small">المصدر: <a href="${esc(j.url)}" target="_blank" rel="noopener">QuranEnc.com — ${esc(j.translation.title && j.translation.title !== key ? j.translation.title : tr[2])}</a>${j.translation.version ? ` (الإصدار ${esc(j.translation.version)})` : ""}. لا تخلو ترجمة لمعاني القرآن من القصور؛ والترجمة تعبّر عن فهم مترجميها.</p></section>`;
         $$("[data-qplay]", out).forEach(b => b.onclick = () => qPlay(sura, +b.dataset.qplay, false));
         $("#q-f").dispatchEvent(new Event("input"));
         if (a0 && $("#a-" + a0)) { $("#a-" + a0).classList.add("q-now"); $("#a-" + a0).scrollIntoView({ block: "center" }); }
