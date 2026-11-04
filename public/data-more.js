@@ -15,6 +15,11 @@ RQ.SITU.push(
   { id: "felicidad", ar: "القلق والسعادة وطمأنينة القلب" }
 );
 RQ.DETECT.push(
+  { si: "ocasion", w: ["ramadan", "eid", "fiesta", "felicidades", "iftar", "ayuno", "cumpleanos", "boda", "graduacion"] },
+  { si: "ciencia", w: ["ciencia", "evolucion", "big bang", "universo", "razon", "logica", "cientifico", "darwin", "prueba"] },
+  { si: "familia", w: ["mis padres", "familia", "hijos", "mi madre", "mi padre", "vecino", "matrimonio", "educar"] },
+  { si: "akhira", w: ["muerte", "despues de morir", "paraiso", "infierno", "juicio final", "vida eterna", "resurreccion", "cielo"] },
+  { si: "felicidad", w: ["ansiedad", "estres", "depre", "vacio", "feliz", "felicidad", "paz interior", "agobiado", "sin sentido"] },
   { si: "sufrimiento", w: ["por que dios permite", "sufrimiento", "si dios existe por que", "injusticia", "guerra y hambre", "ninos sufren", "mal en el mundo", "dios es bueno"] },
   { si: "religiones", w: ["todas las religiones", "mismo dios", "cualquier religion", "lo importante es ser buena persona", "no importa la religion", "todos los caminos"] },
   { si: "practicas", w: ["cerdo", "alcohol", "vino", "cerveza", "rezan cinco", "rezar cinco", "ayuno", "ayunar", "ramadan", "halal", "velo", "hiyab", "pañuelo", "panuelo", "mezquita"] }
