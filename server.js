@@ -85,7 +85,7 @@ app.get("/api/quran/:sura/:aya", async (req, res) => {
     for (let n = a; n <= b; n++) {
       const j = await getJSON(`https://quranenc.com/api/v1/translation/aya/${key}/${s}/${n}`, 30 * DAY);
       const r = j.result || {};
-      ayahs.push({ aya: n, arabic: r.arabic_text || "", text: r.translation || "", footnotes: r.footnotes || "" });
+      ayahs.push({ aya: n, arabic: r.arabic_text || "", text: String(r.translation || "").replace(/^\s*\d+\s*[.\-–:]\s*/, ""), footnotes: r.footnotes || "" });
     }
     send(res, { sura: s, from: a, to: b, ayahs, translation: meta, source: "QuranEnc.com", url: `https://quranenc.com/es/browse/${key}/${s}/${a}` }, 86400);
   } catch (e) { fail(res, e); }
@@ -108,9 +108,9 @@ app.get("/api/hadith/:id", async (req, res) => {
   try {
     const h = await getJSON(`https://hadeethenc.com/api/v1/hadeeths/one/?language=es&id=${id}`, 30 * DAY);
     send(res, {
-      id: h.id, title: h.title, intro: h.hadeeth_intro || "", text: h.hadeeth, attribution: h.attribution, grade: h.grade,
+      id: h.id, title: h.title, intro: h.hadeeth_intro && !String(h.hadeeth || "").startsWith(String(h.hadeeth_intro).trim()) ? h.hadeeth_intro : "", text: h.hadeeth, attribution: h.attribution, grade: h.grade,
       explanation: h.explanation, hints: h.hints || [],
-      ar: { intro: h.hadeeth_intro_ar || "", text: h.hadeeth_ar || "", attribution: h.attribution_ar || "", grade: h.grade_ar || "", explanation: h.explanation_ar || "" },
+      ar: { intro: h.hadeeth_intro_ar && !String(h.hadeeth_ar || "").startsWith(String(h.hadeeth_intro_ar).trim()) ? h.hadeeth_intro_ar : "", text: h.hadeeth_ar || "", attribution: h.attribution_ar || "", grade: h.grade_ar || "", explanation: h.explanation_ar || "" },
       source: "HadeethEnc.com", url: `https://hadeethenc.com/es/browse/hadith/${id}`
     }, 86400);
   } catch (e) { fail(res, e); }
