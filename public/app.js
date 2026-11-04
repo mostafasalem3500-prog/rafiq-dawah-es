@@ -53,7 +53,7 @@
       const load = () => { this.voices = speechSynthesis.getVoices(); document.dispatchEvent(new Event("voices")); };
       load(); speechSynthesis.addEventListener("voiceschanged", load);
     },
-    neural() { return S.engine !== "browser" && !this.down; },
+    neural() { return S.engine !== "browser" && !this.down && Date.now() > (this.downUntil || 0); },
     nv(lang) { const id = lang === "ar" ? S.nvAr : S.nvEs; return NV[lang].some(v => v[0] === id) ? id : NV[lang][0][0]; },
     partner(id) { const v = NV.es.find(x => x[0] === id) || NV.es[0]; const pre = v[0].split("-")[0]; const same = NV.es.filter(x => x[0].split("-")[0] === pre && x[2] !== v[2]); return (same[0] || NV.es.find(x => x[2] !== v[2]))[0]; },
     list(lang) { return this.voices.filter(v => lang === "es" ? /^es([-_]|$)/i.test(v.lang) : /^ar([-_]|$)/i.test(v.lang)); },
@@ -72,7 +72,7 @@
       this.stop(true); const my = ++this.tok; const parts = this.split(text); if (!parts.length) return Promise.resolve();
       if (!o.quiet) { $("#player").hidden = false; $("#p-pause").textContent = "⏸"; }
       const rate = o.rate || Number(S.rate) || 0.9;
-      const run = this.neural() ? this.playNeural(parts, o.voice || this.nv(lang), rate, onSentence, my).catch(e => { if (my !== this.tok) return; if (e && e.name === "NotAllowedError") return; this.down = true; toast("الصوت الطبيعي غير متاح الآن؛ نستعمل صوت المتصفح"); return this.playBrowser(parts.slice(e.at || 0), lang, rate, onSentence, my); })
+      const run = this.neural() ? this.playNeural(parts, o.voice || this.nv(lang), rate, onSentence, my).catch(e => { if (my !== this.tok) return; if (e && e.name === "NotAllowedError") return; this.downUntil = Date.now() + 60000; if (!this.warned) { this.warned = true; toast("الصوت الطبيعي مشغول الآن؛ نستعمل صوت المتصفح مؤقتًا"); } return this.playBrowser(parts.slice(e.at || 0), lang, rate, onSentence, my); })
         : this.playBrowser(parts, lang, rate, onSentence, my);
       return run.finally(() => { if (my === this.tok && !o.keep) this.done(); });
     },
@@ -114,7 +114,7 @@
       for (let i = 0; i < lines.length; i++) {
         if (my !== this.tok) return; if (onLine) onLine(i);
         const lang = lines[i].lang || "es", parts = this.split(lines[i].text), voice = lines[i].voice || this.nv(lang);
-        if (this.neural()) { try { await this.playNeural(parts, voice, rate, null, my); } catch (e) { if (my !== this.tok || e.name === "NotAllowedError") return; this.down = true; await this.playBrowser(parts, lang, rate, null, my); } }
+        if (this.neural()) { try { await this.playNeural(parts, voice, rate, null, my); } catch (e) { if (my !== this.tok || e.name === "NotAllowedError") return; this.downUntil = Date.now() + 60000; await this.playBrowser(parts, lang, rate, null, my); } }
         else await this.playBrowser(parts, lang, rate, null, my);
       }
       if (my === this.tok) { if (onLine) onLine(lines.length); this.done(); }

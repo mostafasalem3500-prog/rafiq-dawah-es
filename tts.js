@@ -80,9 +80,9 @@ async function cached(k) {
   try { const b = await fs.promises.readFile(path.join(DIR, k + ".wav")); remember(k, b); return b; } catch (e) { return null; }
 }
 
-let status = { ok: null, err: "" };
+let status = { ok: null, err: "" }; let coolUntil = 0;
 function mount(app) {
-  app.get("/api/tts/voices", (req, res) => res.json({ enabled: !!KEY, ok: status.ok, voices: VOICES.es.concat(VOICES.ar).map(v => v.slice(0, 3)) }));
+  app.get("/api/tts/voices", (req, res) => res.json({ enabled: !!KEY, ok: status.ok, cooling: Date.now() < coolUntil, voices: VOICES.es.concat(VOICES.ar).map(v => v.slice(0, 3)) }));
   app.get("/api/tts", async (req, res) => {
     const text = String(req.query.t || "").replace(/\s+/g, " ").trim();
     const v = BYID.get(String(req.query.v || ""));
@@ -92,6 +92,7 @@ function mount(app) {
     const send = b => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("Content-Length", b.length); res.end(b); };
     const hit = await cached(k); if (hit) return send(hit);
     if (!KEY) return res.status(503).json({ error: "disabled" });
+    if (Date.now() < coolUntil) return res.status(503).json({ error: "quota_cooldown" });
     if (!inflight.has(k)) {
       const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
       const now = Date.now(); const h = (ipHits.get(ip) || []).filter(t => now - t < 60000);
@@ -101,7 +102,7 @@ function mount(app) {
       if (day.n >= DAILY) return res.status(429).json({ error: "daily" });
       day.n++;
       inflight.set(k, synth(text, v).then(b => { remember(k, b); fs.promises.writeFile(path.join(DIR, k + ".wav"), b).catch(() => { }); status = { ok: true, err: "" }; return b; })
-        .catch(e => { status = { ok: false, err: String(e.message || e) }; console.error("tts", e.message); throw e; })
+        .catch(e => { status = { ok: false, err: String(e.message || e) }; if (/quota|rate|429/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } console.error("tts", String(e.message).slice(0, 200)); throw e; })
         .finally(() => inflight.delete(k)));
     }
     try { send(await inflight.get(k)); } catch (e) { res.status(502).json({ error: "tts_unavailable", message: String(e.message || e) }); }

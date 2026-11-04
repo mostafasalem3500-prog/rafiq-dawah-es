@@ -179,13 +179,17 @@ async function discoverModels() {
 }
 discoverModels();
 let geminiPreferred = null; // last model that answered successfully
+const noThinkCfg = new Set(); // models that rejected thinkingConfig
 async function geminiOnce(model, system, user, temperature) {
-  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 35000);
   try {
+    const gen = { temperature, maxOutputTokens: 4096 };
+    if (/gemini-3/.test(model) && !noThinkCfg.has(model)) gen.thinkingConfig = { thinkingLevel: "low" };
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature, maxOutputTokens: 4096 } })
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: gen })
     });
+    if (r.status === 400 && gen.thinkingConfig) { noThinkCfg.add(model); clearTimeout(to); return geminiOnce(model, system, user, temperature); }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error((j.error && j.error.message) || `Gemini HTTP ${r.status}`); e.status = r.status; throw e; }
     const out = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || "").join("").trim();
