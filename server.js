@@ -211,6 +211,8 @@ app.post("/api/translate", async (req, res) => {
   } catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
 });
 
+require("./tts").mount(app);
+
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 
 /* ---------- static ---------- */

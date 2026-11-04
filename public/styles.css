@@ -263,3 +263,7 @@ body.lx-bigtext .lx .lx-es, body.lx-bigtext .lx .lx-opt { font-size: 1.3rem; }
 @media (max-width: 560px) { .lx-match { grid-template-columns: 1fr 1fr; } .lx-kcard span { font-size: 3rem; } .lx-lvrow { grid-template-columns: 100px 1fr 56px; } }
 .lx-ex .lx-es { font-size: 1.6rem; text-align: center; }
 .lx-ex .lx-em + .lx-es, .lx-ex .lx-ar { text-align: center; }
+.lx-tw { cursor: pointer; border-radius: 4px; }
+.lx-tw:hover, .lx-tw.on { background: var(--gold-soft); }
+.lx-pop-box { position: sticky; top: 8px; z-index: 5; background: var(--surface); border: 2px solid var(--gold-bright); border-radius: 12px; padding: 10px 14px; margin: 8px 0; box-shadow: var(--shadow); }
+.lx-sent.lx-now { background: var(--gold-soft); border-radius: 10px; }

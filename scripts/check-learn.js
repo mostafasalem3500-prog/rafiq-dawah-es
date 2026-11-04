@@ -1,7 +1,7 @@
 // Validates the Spanish course data and the conjugation engine.
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const ctx = { console }; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
-for (const f of ["lib", "a1", "a2", "b1", "c1", "extra"]) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "public", "learn", f + ".js"), "utf8"), ctx);
+for (const f of ["lib", "a1", "a2", "b1", "c1", "extra", "phrases-a", "phrases-b", "islam", "vocab"]) if (fs.existsSync(path.join(__dirname, "..", "public", "learn", f + ".js"))) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "public", "learn", f + ".js"), "utf8"), ctx);
 const L = ctx.window.LEARN; const errs = [];
 const ids = new Set(); const LV = ["A1", "A2", "B1", "B2", "C1", "DAWAH"];
 for (const u of L.UNITS) {
@@ -23,6 +23,14 @@ for (const k of L.KIDS) { if (k.w.length < 8) errs.push(k.id + " few"); k.w.forE
 for (const r of L.READ) r.q.forEach(([q, o, a]) => { if (!(a >= 0 && a < o.length)) errs.push(`${r.id} bad answer ${q}`); });
 L.PLACEMENT.forEach(([q, o, a, lv]) => { if (!(a >= 0 && a < o.length) || !LV.includes(lv)) errs.push("placement " + q); });
 for (const [v] of L.VERBS) for (const [t] of L.TENSES) { const f = L.conj(v, t); if (f.length !== 6 || f.some(x => !x || /undefined/.test(x))) errs.push(`conj ${v} ${t}`); }
+const qmarks = (t, where) => { if (/\?/.test(t) && !/¿/.test(t)) errs.push(`${where} missing ¿: ${t}`); if (/!/.test(t) && !/¡/.test(t)) errs.push(`${where} missing ¡: ${t}`); };
+const chkS = (arr, where) => { const seen = new Set(); arr.forEach(x => { const p = x.split("|"); if (p.length !== 2 || !p[0].trim() || !p[1].trim()) errs.push(`${where} bad sentence ${x}`); else { qmarks(p[0], where); if (seen.has(p[0])) errs.push(`${where} dup ${p[0]}`); seen.add(p[0]); } }); };
+const chkW = (arr, where) => arr.forEach(x => { const p = x.split("|"); if (p.length !== 3 || !p[0].trim() || !p[1].trim()) errs.push(`${where} bad word ${x}`); if (/[\u{1F1E6}-\u{1F1FF}]/u.test(x)) errs.push(`${where} flag emoji ${x}`); });
+const ids2 = new Set();
+(L.PHRASES || []).forEach(t => { if (ids2.has(t.id)) errs.push("dup " + t.id); ids2.add(t.id); if (!LV.includes(t.lv)) errs.push(t.id + " level"); chkS(t.s, t.id); });
+(L.DECKS || []).forEach(d => { if (ids2.has(d.id)) errs.push("dup " + d.id); ids2.add(d.id); chkW(d.w, d.id); });
+(L.ISLAM || []).forEach(c => { if (ids2.has(c.id)) errs.push("dup " + c.id); ids2.add(c.id); chkW(c.w, c.id); chkS(c.s, c.id); c.s.forEach(x => { if (/«[^»]{25,}»/.test(x) && /Corán|Allah dice|Dios dice/.test(x)) errs.push(`${c.id} possible quoted verse: ${x}`); }); });
+[...(L.ISLAM_DLG || []), ...L.CONV].forEach(c => { if (ids2.has(c.id)) errs.push("dup " + c.id); ids2.add(c.id); });
 const words = L.UNITS.reduce((n, u) => n + u.w.length, 0), sents = L.UNITS.reduce((n, u) => n + u.s.length + u.g.ex.length, 0), lines = L.UNITS.reduce((n, u) => n + u.d.length, 0) + L.CONV.reduce((n, c) => n + c.d.length, 0);
-console.log(`units ${L.UNITS.length} (${LV.map(l => l + ":" + L.UNITS.filter(u => u.lv === l).length).join(" ")}), words ${words}, sentences ${sents}, dialogue lines ${lines}, conversations ${L.CONV.length}, readings ${L.READ.length}, placement ${L.PLACEMENT.length}, verbs ${L.VERBS.length}`);
+console.log(`phrases ${(L.PHRASES||[]).reduce((n,t)=>n+t.s.length,0)} in ${(L.PHRASES||[]).length} topics, decks ${(L.DECKS||[]).reduce((n,d)=>n+d.w.length,0)} words, islam ${(L.ISLAM||[]).reduce((n,c)=>n+c.w.length,0)} words + ${(L.ISLAM||[]).reduce((n,c)=>n+c.s.length,0)} sentences, islam dialogues ${(L.ISLAM_DLG||[]).length}`); console.log(`units ${L.UNITS.length} (${LV.map(l => l + ":" + L.UNITS.filter(u => u.lv === l).length).join(" ")}), words ${words}, sentences ${sents}, dialogue lines ${lines}, conversations ${L.CONV.length}, readings ${L.READ.length}, placement ${L.PLACEMENT.length}, verbs ${L.VERBS.length}`);
 if (errs.length) { console.error(errs.join("\n")); process.exit(1); } else console.log("OK: course data valid");

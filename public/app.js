@@ -13,7 +13,7 @@
   const view = $("#view");
 
   /* ---------- settings ---------- */
-  const S = Object.assign({ voice: "", arVoice: "", rate: 0.9, pitch: 1, showAr: true, favs: [], tone: "tu" }, (() => { try { return JSON.parse(localStorage.getItem("rafiq-settings") || "{}"); } catch (e) { return {}; } })());
+  const S = Object.assign({ voice: "", arVoice: "", rate: 0.95, pitch: 1, engine: "neural", nvEs: "es-kore", nvAr: "ar-charon", showAr: true, favs: [], tone: "tu" }, (() => { try { return JSON.parse(localStorage.getItem("rafiq-settings") || "{}"); } catch (e) { return {}; } })());
   const saveS = () => { try { localStorage.setItem("rafiq-settings", JSON.stringify(S)); } catch (e) { } };
 
   /* ---------- toast & copy ---------- */
@@ -39,45 +39,98 @@
   let REG = new Map(), regN = 0;
   const reg = o => { const k = "k" + (regN++); REG.set(k, o); return k; };
 
-  /* ---------- TTS ---------- */
+  /* ---------- TTS: natural (neural) voices from the server, browser voices as fallback ---------- */
+  const NV = {
+    es: [["es-kore", "كوري — إسبانيا", "F"], ["es-puck", "بَك — إسبانيا", "M"], ["es-sulafat", "سولافات — إسبانيا (دافئ)", "F"], ["es-iapetus", "إيابيتوس — إسبانيا (واضح)", "M"], ["mx-aoede", "إيودي — المكسيك", "F"], ["mx-charon", "كارون — المكسيك", "M"], ["la-leda", "ليدا — لاتين أمريكا (شابة)", "F"], ["la-achird", "أشيرد — لاتين أمريكا (ودود)", "M"], ["la-vindemiatrix", "فينديمياتريكس — لاتين أمريكا (هادئ)", "F"], ["la-orus", "أوروس — لاتين أمريكا (رصين)", "M"]],
+    ar: [["ar-charon", "كارون — عربي فصيح", "M"], ["ar-kore", "كوري — عربي فصيح", "F"], ["ar-sadaltager", "سعد — عربي فصيح", "M"]]
+  };
   const TTS = {
-    ok: "speechSynthesis" in window, voices: [], paused: false,
+    ok: "speechSynthesis" in window, voices: [], paused: false, tok: 0, au: new Audio(), down: false, mode: "",
     init() {
+      this.au.preload = "auto";
+      fetch("/api/tts/voices").then(r => r.json()).then(j => { this.server = !!j.enabled; if (!j.enabled) this.down = true; document.dispatchEvent(new Event("voices")); }).catch(() => { this.down = true; });
       if (!this.ok) return;
       const load = () => { this.voices = speechSynthesis.getVoices(); document.dispatchEvent(new Event("voices")); };
       load(); speechSynthesis.addEventListener("voiceschanged", load);
     },
+    neural() { return S.engine !== "browser" && !this.down; },
+    nv(lang) { const id = lang === "ar" ? S.nvAr : S.nvEs; return NV[lang].some(v => v[0] === id) ? id : NV[lang][0][0]; },
+    partner(id) { const v = NV.es.find(x => x[0] === id) || NV.es[0]; const pre = v[0].split("-")[0]; const same = NV.es.filter(x => x[0].split("-")[0] === pre && x[2] !== v[2]); return (same[0] || NV.es.find(x => x[2] !== v[2]))[0]; },
     list(lang) { return this.voices.filter(v => lang === "es" ? /^es([-_]|$)/i.test(v.lang) : /^ar([-_]|$)/i.test(v.lang)); },
     pick(lang) {
       const list = this.list(lang); const uri = lang === "es" ? S.voice : S.arVoice;
-      return list.find(v => v.voiceURI === uri) || list.find(v => /es-ES|es_ES/i.test(v.lang) && lang === "es") || list[0] || null;
+      const good = v => /natural|neural|online|google|premium|enhanced|siri/i.test(v.name);
+      return list.find(v => v.voiceURI === uri) || list.find(v => good(v) && (lang !== "es" || /es[-_](ES|MX|US)/i.test(v.lang))) || list.find(good) || list.find(v => /es-ES|es_ES/i.test(v.lang) && lang === "es") || list[0] || null;
     },
-    split(text) { return String(text).replace(/\s+/g, " ").match(/[^.!?…؟]+[.!?…؟]*["»”)]*\s*/g)?.map(s => s.trim()).filter(Boolean) || [text]; },
-    speak(text, lang = "es", onSentence) {
-      if (!this.ok) { toast("متصفحك لا يدعم النطق الصوتي"); return; }
-      speechSynthesis.cancel(); this.paused = false;
-      const parts = this.split(text); const voice = this.pick(lang);
-      if (!voice && lang === "ar") toast("لا يوجد صوت عربي في متصفحك؛ جرّب Chrome أو Edge");
-      parts.forEach((p, i) => {
-        const u = new SpeechSynthesisUtterance(p);
-        u.lang = voice ? voice.lang : (lang === "es" ? "es-ES" : "ar-SA"); if (voice) u.voice = voice;
-        u.rate = Number(S.rate) || 0.9; u.pitch = Number(S.pitch) || 1;
-        u.onstart = () => { $("#now-text").textContent = p; if (onSentence) onSentence(i); };
-        u.onend = () => { if (i === parts.length - 1) this.done(); };
-        u.onerror = () => { if (i === parts.length - 1) this.done(); };
-        speechSynthesis.speak(u);
+    split(text) {
+      const s = String(text).replace(/\s+/g, " ").match(/[^.!?…؟]+[.!?…؟]*["»”)]*\s*/g)?.map(x => x.trim()).filter(Boolean) || [String(text)];
+      return s.flatMap(x => x.length <= 280 ? [x] : x.split(/(?<=[,;:،])\s+/).reduce((a, w) => { if (a.length && (a[a.length - 1] + " " + w).length <= 280) a[a.length - 1] += " " + w; else a.push(w); return a; }, []));
+    },
+    url(t, v) { return `/api/tts?v=${encodeURIComponent(v)}&t=${encodeURIComponent(t)}`; },
+    /* speak(text, lang, onSentence, {voice, rate, quiet}) → Promise that resolves when finished */
+    speak(text, lang = "es", onSentence, o = {}) {
+      this.stop(true); const my = ++this.tok; const parts = this.split(text); if (!parts.length) return Promise.resolve();
+      if (!o.quiet) { $("#player").hidden = false; $("#p-pause").textContent = "⏸"; }
+      const rate = o.rate || Number(S.rate) || 0.9;
+      const run = this.neural() ? this.playNeural(parts, o.voice || this.nv(lang), rate, onSentence, my).catch(e => { if (my !== this.tok) return; if (e && e.name === "NotAllowedError") return; this.down = true; toast("الصوت الطبيعي غير متاح الآن؛ نستعمل صوت المتصفح"); return this.playBrowser(parts.slice(e.at || 0), lang, rate, onSentence, my); })
+        : this.playBrowser(parts, lang, rate, onSentence, my);
+      return run.finally(() => { if (my === this.tok && !o.keep) this.done(); });
+    },
+    async playNeural(parts, voice, rate, onSentence, my) {
+      this.mode = "neural";
+      for (let i = 0; i < parts.length; i++) {
+        if (my !== this.tok) return;
+        if (parts[i + 1]) { const pre = new Audio(); pre.preload = "auto"; pre.src = this.url(parts[i + 1], voice); }
+        $("#now-text").textContent = parts[i]; if (onSentence) onSentence(i);
+        try {
+          await new Promise((res, rej) => {
+            const a = this.au; a.onended = res; a.onerror = () => rej(new Error("audio")); a.src = this.url(parts[i], voice);
+            a.playbackRate = rate; a.defaultPlaybackRate = rate; if ("preservesPitch" in a) a.preservesPitch = true;
+            a.play().catch(rej);
+          });
+        } catch (e) { e.at = i; throw e; }
+      }
+    },
+    playBrowser(parts, lang, rate, onSentence, my) {
+      this.mode = "browser";
+      return new Promise(res => {
+        if (!this.ok) { toast("متصفحك لا يدعم النطق الصوتي"); return res(); }
+        speechSynthesis.cancel(); const voice = this.pick(lang);
+        if (!voice && lang === "ar") toast("لا يوجد صوت عربي في متصفحك");
+        parts.forEach((p, i) => {
+          const u = new SpeechSynthesisUtterance(p);
+          u.lang = voice ? voice.lang : (lang === "es" ? "es-ES" : "ar-SA"); if (voice) u.voice = voice;
+          u.rate = rate; u.pitch = Number(S.pitch) || 1;
+          u.onstart = () => { if (my !== this.tok) return; $("#now-text").textContent = p; if (onSentence) onSentence(i); };
+          u.onend = u.onerror = () => { if (i === parts.length - 1) res(); };
+          speechSynthesis.speak(u);
+        });
       });
-      $("#player").hidden = false; $("#p-pause").textContent = "⏸";
+    },
+    /* lines: [{text, lang, voice}] played one after another */
+    async seq(lines, onLine) {
+      this.stop(true); const my = ++this.tok; $("#player").hidden = false; $("#p-pause").textContent = "⏸";
+      const rate = Number(S.rate) || 0.9;
+      for (let i = 0; i < lines.length; i++) {
+        if (my !== this.tok) return; if (onLine) onLine(i);
+        const lang = lines[i].lang || "es", parts = this.split(lines[i].text), voice = lines[i].voice || this.nv(lang);
+        if (this.neural()) { try { await this.playNeural(parts, voice, rate, null, my); } catch (e) { if (my !== this.tok || e.name === "NotAllowedError") return; this.down = true; await this.playBrowser(parts, lang, rate, null, my); } }
+        else await this.playBrowser(parts, lang, rate, null, my);
+      }
+      if (my === this.tok) { if (onLine) onLine(lines.length); this.done(); }
     },
     done() { $("#player").hidden = true; $$("mark.speaking").forEach(m => m.replaceWith(...m.childNodes)); document.dispatchEvent(new Event("tts-end")); },
-    stop() { if (this.ok) speechSynthesis.cancel(); this.done(); },
-    toggle() { if (!this.ok) return; if (speechSynthesis.paused) { speechSynthesis.resume(); $("#p-pause").textContent = "⏸"; } else { speechSynthesis.pause(); $("#p-pause").textContent = "▶"; } }
+    stop(silent) { this.tok++; try { this.au.pause(); this.au.removeAttribute("src"); this.au.load(); } catch (e) { } if (this.ok) speechSynthesis.cancel(); if (!silent) this.done(); },
+    toggle() {
+      if (this.mode === "neural") { if (this.au.paused) { this.au.play().catch(() => { }); $("#p-pause").textContent = "⏸"; } else { this.au.pause(); $("#p-pause").textContent = "▶"; } return; }
+      if (!this.ok) return; if (speechSynthesis.paused) { speechSynthesis.resume(); $("#p-pause").textContent = "⏸"; } else { speechSynthesis.pause(); $("#p-pause").textContent = "▶"; }
+    }
   };
   TTS.init();
   $("#p-pause").onclick = () => TTS.toggle();
   $("#p-stop").onclick = () => TTS.stop();
   $("#p-rate").value = S.rate; $("#p-rate-out").textContent = Number(S.rate).toFixed(2) + "×";
-  $("#p-rate").oninput = e => { S.rate = Number(e.target.value); $("#p-rate-out").textContent = S.rate.toFixed(2) + "×"; saveS(); syncRate(); };
+  $("#p-rate").oninput = e => { S.rate = Number(e.target.value); $("#p-rate-out").textContent = S.rate.toFixed(2) + "×"; saveS(); syncRate(); TTS.au.playbackRate = S.rate; };
   function syncRate() { $$("[data-rate]").forEach(i => { i.value = S.rate; }); $$("[data-rate-out]").forEach(o => o.textContent = Number(S.rate).toFixed(2) + "×"); }
 
   /* ---------- reference widgets (QuranEnc / HadeethEnc) ---------- */
@@ -152,7 +205,8 @@
     return `<section class="hero"><h1>ماذا أمامك الآن؟</h1><p>اختر الموقف الذي تمر به مع محاورك، فيعطيك الموقع خطة ورسالة بالإسبانية مع معناها ونطقها، وآيات وأحاديث من مصادرها كما هي.</p>
       <div class="situ-grid">${RQ.SITU.map(s => `<a class="btn" href="#componer/${s.id}">${esc(s.ar)}</a>`).join("")}</div>
       <div class="row"><a class="btn primary" href="#componer">افتح المُركِّب</a><a class="btn" href="#analizar">الصق رسالة من المحاور</a><a class="btn" href="#guia">ابدأ من دليل الداعية</a></div></section>
-      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🗣️</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">35 درسًا من A1 إلى C1، ومسار «الإسبانية للداعية»، بالصوت والمحادثات والتمارين والمراجعة الذكية، ويناسب كل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
+      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🗣️</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">آلاف الكلمات والجمل من A1 إلى C1، وقسم للإسبانية الشرعية والدعوية، بأصوات طبيعية ومحادثات وتمارين واختبارات ومراجعة ذكية، لكل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
+      <div class="lx-tiles">${[["#confianza", "🤝", "بناء الثقة", "8 مبادئ و5 مراحل وخطة شهر"], ["#preguntas", "❓", "أسئلة الباحثين", `${RQ.FAQ.length} سؤالًا بإجابات جاهزة`], ["#libros", "📚", "دليل كتب IslamHouse", `${RQ.BOOKS.length} كتابًا حسب المحاور`], ["#seguimiento", "🗓️", "متابعة المحاورين", "لا تنسَ أحدًا ولا تكرر رسالة"]].map(([h, ic, t, d]) => `<a class="lx-tile card lift" href="${h}"><span class="lx-tic">${ic}</span><b>${t}</b><span class="muted small">${d}</span></a>`).join("")}</div>
       <div class="stats">${[[RQ.MSG.length, "رسالة قصيرة"], [RQ.DLG.length, "قالب محادثة"], [RQ.ART.length, "مقالة قصيرة"], [RQ.COURSE.length, "لقاءً في المنهج"], [RQ.WARN.length, "تحذيرًا للداعية"]].map(s => `<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("")}</div>
       <div class="two"><div><h2 style="margin-bottom:10px">رسالة اليوم</h2>${msgCard(m)}</div>
       <div class="card"><h2>كيف يعمل الموقع؟</h2><ol class="steps"><li><b>المُركِّب</b> يفهم نوع محاورك ومرحلته وموقفه، ويجمع لك خطة ورسالة ومحادثة.</li><li><b>حلّل رسالة المحاور</b>: الصق ما كتبه بالإسبانية، فيكشف الموضوع ويحذّرك من المزالق.</li><li><b>النطق</b> بأكثر من لهجة إسبانية وبسرعة تتحكم فيها، للداعية مهما كانت خبرته.</li><li><b>المكتبة</b> تجلب الآيات من QuranEnc والأحاديث من HadeethEnc والكتب من IslamHouse.</li><li><b>التحذيرات</b> تحميك من المواضيع التي تُخسرك الباحث عن الحقيقة.</li></ol></div></div>`;
@@ -348,12 +402,18 @@
     <div class="two"><div class="card"><div class="field"><label for="pr-text">النص الإسباني</label><textarea id="pr-text" lang="es" dir="ltr">${esc(RQ.MSG[0].es)}</textarea></div>
       <div class="row" style="margin-top:10px"><button class="primary" type="button" id="pr-all">🔊 اقرأ كاملًا</button><button type="button" id="pr-next">▶ الجملة التالية</button><button type="button" id="pr-stop">⏹</button><button type="button" class="gem-btn" data-gem-src="#pr-text" data-gem-dir="es-ar" data-gem-out="#pr-gem" hidden>✨ المعنى عبر Gemini</button><a class="btn" id="pr-tr" href="#" target="_blank" rel="noopener">المعنى في Google</a></div><div id="pr-gem"></div>
       <div id="pr-sent" class="es-text" lang="es" style="margin-top:12px"></div></div>
-    <div class="card"><h3>الصوت والسرعة</h3><div class="field"><label for="v-es">الصوت الإسباني</label><select id="v-es"></select><small class="muted" id="v-count"></small></div>
-      <div class="field"><span class="small" style="font-weight:700">لهجة سريعة</span><div class="chips" id="v-dial"></div></div>
+    <div class="card"><h3>الصوت والسرعة</h3>
+      <div class="field"><label for="v-eng">نوع الصوت</label><select id="v-eng"><option value="neural"${S.engine !== "browser" ? " selected" : ""}>أصوات بشرية طبيعية (موصى بها)</option><option value="browser"${S.engine === "browser" ? " selected" : ""}>أصوات المتصفح (تعمل دون إنترنت)</option></select></div>
+      <div class="field"><label for="nv-es">الصوت الإسباني</label><select id="nv-es">${NV.es.map(v => `<option value="${v[0]}"${v[0] === TTS.nv("es") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
+      <div class="field"><span class="small" style="font-weight:700">جرّب الأصوات</span><div class="chips">${NV.es.map(v => `<button type="button" class="chip" data-nvtry="${v[0]}" aria-pressed="${v[0] === TTS.nv("es")}">${v[2] === "F" ? "👩" : "👨"} ${v[1].split(" — ")[1]} · ${v[1].split(" — ")[0]}</button>`).join("")}</div></div>
+      <div class="field"><label for="nv-ar">الصوت العربي (للمعاني)</label><select id="nv-ar">${NV.ar.map(v => `<option value="${v[0]}"${v[0] === TTS.nv("ar") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
       <div class="field"><label for="v-rate">السرعة</label><div class="row"><input type="range" id="v-rate" data-rate min="0.5" max="1.5" step="0.05" value="${S.rate}" style="flex:1"><output data-rate-out>${Number(S.rate).toFixed(2)}×</output></div></div>
+      <details class="small"><summary>أصوات المتصفح (احتياطي عند انقطاع الإنترنت)</summary>
+      <div class="field"><label for="v-es">صوت المتصفح الإسباني</label><select id="v-es"></select><small class="muted" id="v-count"></small></div>
+      <div class="field"><span class="small" style="font-weight:700">لهجة سريعة</span><div class="chips" id="v-dial"></div></div>
       <div class="field"><label for="v-pitch">طبقة الصوت</label><input type="range" id="v-pitch" min="0.7" max="1.3" step="0.05" value="${S.pitch}"></div>
-      <div class="field"><label for="v-ar">الصوت العربي (للمعاني)</label><select id="v-ar"></select></div>
-      <p class="muted small">الأصوات المتاحة تعتمد على جهازك ومتصفحك. أكثرها تنوعًا في Microsoft Edge وGoogle Chrome. على الهاتف ثبّت «صوت Google» أو أصوات الإسبانية من إعدادات تحويل النص إلى كلام.</p></div></div>
+      <div class="field"><label for="v-ar">صوت المتصفح العربي</label><select id="v-ar"></select></div></details>
+      <p class="muted small" id="v-note">الأصوات الطبيعية من نماذج Google Gemini الصوتية (بلهجات إسبانيا والمكسيك وأمريكا اللاتينية)، تُولَّد على الخادم مرة واحدة لكل جملة ثم تُحفظ. إذا لم تتوفر يستعمل الموقع أفضل صوت في متصفحك تلقائيًا؛ وأجود أصوات المتصفح المجانية في Microsoft Edge (الأصوات المسماة Natural).</p></div></div>
     <div class="card"><h3>عبارات يحتاجها الداعية</h3>${PHRASES.map(p => { const k = reg({ es: p[0], ar: p[1] }); return `<div class="phrase"><div><p class="es-text" lang="es">${esc(p[0])}</p><p class="small muted">${esc(p[1])}</p></div><div class="actions"><button type="button" data-act="say" data-k="${k}" aria-label="استمع">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ</button></div></div>`; }).join("")}</div>`;
   function bindPron() {
     const fillVoices = () => {
@@ -370,6 +430,10 @@
     $("#v-ar").onchange = e => { S.arVoice = e.target.value; saveS(); };
     $("#v-rate").oninput = e => { S.rate = Number(e.target.value); saveS(); $("#p-rate").value = S.rate; $("#p-rate-out").textContent = S.rate.toFixed(2) + "×"; syncRate(); };
     $("#v-pitch").oninput = e => { S.pitch = Number(e.target.value); saveS(); };
+    $("#v-eng").onchange = e => { S.engine = e.target.value; TTS.down = false; saveS(); TTS.speak("Hola, soy tu compañero de dawah.", "es"); };
+    $("#nv-es").onchange = e => { S.nvEs = e.target.value; saveS(); $$("[data-nvtry]").forEach(b => b.setAttribute("aria-pressed", b.dataset.nvtry === S.nvEs)); TTS.speak("Hola, soy tu compañero de dawah. ¿Cómo estás?", "es"); };
+    $("#nv-ar").onchange = e => { S.nvAr = e.target.value; saveS(); TTS.speak("السلام عليكم، أنا رفيقك في الدعوة.", "ar"); };
+    $$("[data-nvtry]").forEach(b => b.onclick = () => { S.nvEs = b.dataset.nvtry; S.engine = "neural"; TTS.down = false; saveS(); $("#nv-es").value = S.nvEs; $("#v-eng").value = "neural"; $$("[data-nvtry]").forEach(x => x.setAttribute("aria-pressed", x === b)); TTS.speak("Hola, ¿qué tal? Es un placer hablar contigo.", "es"); });
     let idx = 0;
     const sents = () => TTS.split($("#pr-text").value);
     const showSent = i => { const s = sents(); $("#pr-sent").innerHTML = s.map((x, j) => j === i ? `<mark class="speaking">${esc(x)}</mark>` : esc(x)).join(" "); };
@@ -401,6 +465,8 @@
     (RQ.NEWM || []).forEach(c => { if (hit(c.t + " " + c.tar + " " + c.es + " " + c.ar)) R.push(["منهج المسلم الجديد", `${c.n}. ${c.tar}`, `#curso/nuevo`, c.es]); });
     (RQ.TRAIN || []).forEach(c => { if (hit(c.t + " " + c.points.join(" "))) R.push(["دروس الداعية", `${c.n}. ${c.t}`, `#curso/dai`, c.points[0]]); });
     (RQ.IDEAS || []).forEach(c => { if (hit(c.t + " " + c.body)) R.push(["فكرة دعوية", c.t, `#ideas`, c.body]); });
+    (RQ.FAQ || []).forEach(c => { if (hit(c.es + " " + c.ar + " " + c.aes + " " + c.aar)) R.push(["سؤال باحث", c.ar, `#preguntas/${c.id}`, c.aes]); });
+    (RQ.BOOKS || []).forEach(c => { if (hit(c.t + " " + c.note)) R.push(["كتاب IslamHouse", c.t, `#libros`, c.note]); });
     return `${head(`نتائج البحث عن «${esc(q)}»`, `${R.length} نتيجة`)}${R.length ? `<div style="display:grid;gap:10px">${R.map(r => `<a class="card lift" href="${r[2]}" style="text-decoration:none;color:inherit"><div class="row"><span class="tag gold">${r[0]}</span><b>${esc(r[1])}</b></div><p class="es-text small muted" lang="es">${esc(String(r[3]).slice(0, 180))}</p></a>`).join("")}</div>` : `<p class="empty">لا نتائج. جرّب كلمة أخرى بالعربية أو الإسبانية، أو ابحث في <a href="#biblioteca">المكتبة</a>.</p>`}`;
   };
 
@@ -588,21 +654,84 @@
     };
   }
 
+  /* ---------- v3: بناء الثقة، أسئلة الباحثين، دليل الكتب، متابعة المحاورين ---------- */
+  const audLbl = id => (RQ.AUD.find(a => a.id === id) || { ar: id }).ar;
+  V.confianza = () => { const T = RQ.TRUST; return `${head("بناء الثقة مع الباحث عن الإسلام", "الدعوة علاقة إنسانية قبل أن تكون معلومات. هذه مبادئ ومراحل عملية تساعدك على أن تكون أهلًا لثقة محاورك، مع عبارات إسبانية جاهزة لكل مبدأ.")}
+    <h2>ثمانية مبادئ</h2><div class="grid">${T.principles.map((p, i) => { const k = reg({ es: p.es }); return `<article class="card"><div class="row"><span class="num">${i + 1}</span><h3>${esc(p.t)}</h3></div><p>${esc(p.body)}</p><p class="es-text" lang="es">«${esc(p.es)}» <button type="button" data-act="say" data-k="${k}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ</button></p></article>`; }).join("")}</div>
+    <h2>المراحل الخمس وما يناسب كل مرحلة</h2><div style="display:grid;gap:12px">${T.stages.map(s => `<details class="card"><summary><b>${esc(s.t)}</b> — <span class="muted">${esc(s.goal)}</span></summary><div class="two"><div><h4>افعل</h4><ul class="steps">${s.do.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div><div><h4>تجنّب</h4><ul class="steps">${s.dont.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div></div><p><a class="btn" href="#mensajes">رسائل هذه المرحلة</a> <a class="btn" href="#componer">المُركِّب</a></p></details>`).join("")}</div>
+    <h2>خطة أول شهر</h2><div class="card"><ol class="steps">${T.plan.map(p => `<li><b>${esc(p[0])}:</b> ${esc(p[1])}</li>`).join("")}</ol><p><a class="btn primary" href="#seguimiento">افتح «متابعة المحاورين» لتطبيق الخطة</a></p></div>`; };
+
+  V.preguntas = (arg) => `${head("أسئلة الباحثين عن الإسلام", "أكثر الأسئلة تكرارًا من غير المسلمين، مع إجابة قصيرة بالإسبانية جاهزة للإرسال، ومعناها بالعربية، ونصيحة للداعية، والآيات بأرقامها تُجلب من مصدرها. هذه إجابات مختصرة للبداية؛ ما تجاوزها فيُحال إلى أهل العلم.")}
+    <div class="row"><input type="search" id="fq-q" placeholder="ابحث في الأسئلة…" dir="auto" style="flex:1"></div>
+    <div id="fq-list" style="display:grid;gap:12px;margin-top:12px">${RQ.FAQ.map(f => `<article class="card${f.id === arg ? " hl" : ""}" id="${f.id}" data-fq="${esc((f.es + " " + f.ar + " " + f.aes + " " + f.aar).toLowerCase())}"><h3><span lang="es" dir="ltr">${esc(f.es)}</span><br><span class="muted small">${esc(f.ar)}</span></h3>
+      <p class="es-text" lang="es">${esc(f.aes)}</p><p class="ar-text">${esc(f.aar)}</p><p class="notice small">💡 ${esc(f.tip)}</p>${refsHTML(f.q || [], f.h || [])}${actions({ es: `${f.es}\n${f.aes}`, ar: f.aar, q: f.q || [], h: f.h || [] })}</article>`).join("")}</div>`;
+
+  const LS_BOOKS = "rafiq-books-sent";
+  V.libros = () => `${head("دليل كتب IslamHouse للداعية", "مختارات من كتب IslamHouse.com الإسبانية المجانية، مرتبة حسب المحاور ومرحلة الحوار، مع رسالة إسبانية قصيرة جاهزة لمرافقة الرابط. العناوين والروابط من IslamHouse كما هي؛ والملاحظة والرسالة من إعداد الموقع.")}
+    <div class="card"><div class="form"><div class="field"><label for="bk-aud">المحاور</label><select id="bk-aud"><option value="">الجميع</option>${RQ.AUD.map(a => `<option value="${a.id}">${esc(a.ar)}</option>`).join("")}</select></div><div class="field"><label for="bk-lvl">المرحلة</label><select id="bk-lvl"><option value="">الكل</option>${[...new Set(RQ.BOOKS.map(b => b.lvl))].map(l => `<option>${l}</option>`).join("")}</select></div></div>
+    <p class="notice small">ابدأ بكتب «أول تواصل» و«تعريف». كتب «مقارنة» لا تُرسل إلا لمن طلب المقارنة بنفسه وبعد بناء الثقة.</p></div>
+    <div id="bk-list" class="grid" style="margin-top:12px"></div>
+    <p class="muted small">للمزيد: تصفّح كل الكتب الإسبانية (285 كتابًا) في <a href="#biblioteca">المكتبة</a>.</p>`;
+  function bindLibros() {
+    let sent = {}; try { sent = JSON.parse(localStorage.getItem(LS_BOOKS) || "{}"); } catch (e) { }
+    const render = () => { const a = $("#bk-aud").value, l = $("#bk-lvl").value; const list = RQ.BOOKS.filter(b => (!a || b.aud.includes(a)) && (!l || b.lvl === l));
+      $("#bk-list").innerHTML = list.map(b => { const url = `https://islamhouse.com/es/books/${b.id}/`; const msg = (RQ.BOOK_MSG[b.lvl] || "") + url; const k = reg({ es: msg }); return `<article class="card"><div class="row between"><span class="tag gold">${esc(b.lvl)}</span>${sent[b.id] ? `<span class="tag">أُرسل ${esc(sent[b.id])}</span>` : ""}</div><h3 lang="es" dir="ltr" style="text-align:left">📘 ${esc(b.t)}</h3><p class="small">${esc(b.note)}</p><p class="small muted">يناسب: ${b.aud.map(audLbl).join("، ")}</p><p class="es-text small" lang="es">${esc(msg)}</p><div class="actions"><a class="btn" href="${url}" target="_blank" rel="noopener">افتح في IslamHouse</a><button type="button" data-act="copy" data-k="${k}">نسخ الرسالة مع الرابط</button><a class="btn" href="${wa(msg)}" target="_blank" rel="noopener">واتساب</a><button type="button" data-sent="${b.id}">✔ أرسلته</button></div></article>`; }).join("") || `<p class="muted">لا كتب لهذا الاختيار.</p>`;
+      $$("[data-sent]").forEach(x => x.onclick = () => { sent[x.dataset.sent] = new Date().toLocaleDateString("ar-SA-u-nu-latn"); try { localStorage.setItem(LS_BOOKS, JSON.stringify(sent)); } catch (e) { } render(); toast("سُجّل الإرسال"); }); };
+    $("#bk-aud").onchange = render; $("#bk-lvl").onchange = render; render();
+  }
+
+  /* متابعة المحاورين: تُحفظ في هذا الجهاز فقط */
+  const LS_CT = "rafiq-contacts";
+  const loadCt = () => { try { return JSON.parse(localStorage.getItem(LS_CT) || "[]"); } catch (e) { return []; } };
+  const saveCt = c => { try { localStorage.setItem(LS_CT, JSON.stringify(c)); } catch (e) { } };
+  const dIso = (n = 0) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString("en-CA"); };
+  V.seguimiento = () => `${head("متابعة المحاورين", "سجلّ بسيط لمن تحاورهم: المرحلة، والاهتمامات، وآخر تواصل، وموعد التواصل التالي، مع اقتراح الرسالة المناسبة. البيانات محفوظة في جهازك فقط ولا تُرسل لأي جهة؛ استعمل اسمًا مستعارًا أو الاسم الأول فقط.")}
+    <div class="card"><h3>إضافة محاور</h3><form id="ct-form" class="form"><div class="field"><label for="ct-n">الاسم (أو اسم مستعار)</label><input id="ct-n" required maxlength="40"></div>
+      <div class="field"><label for="ct-a">النوع</label><select id="ct-a">${RQ.AUD.map(a => `<option value="${a.id}">${esc(a.ar)}</option>`).join("")}</select></div>
+      <div class="field"><label for="ct-s">المرحلة</label><select id="ct-s">${RQ.STAGES.map(s => `<option value="${s.id}">${esc(s.ar)}</option>`).join("")}</select></div>
+      <div class="field"><label for="ct-i">اهتماماته أو أسئلته</label><input id="ct-i" maxlength="120" placeholder="مثال: يسأل عن عيسى، يحب التاريخ"></div>
+      <div class="field"><label for="ct-d">التواصل التالي</label><input type="date" id="ct-d" value="${dIso(3)}"></div>
+      <div class="field" style="align-self:end"><button class="primary" type="submit">أضف</button></div></form></div>
+    <div class="row between" style="margin-top:12px"><b id="ct-sum"></b><span class="row"><button type="button" id="ct-exp">⬇ تصدير</button><label class="btn">⬆ استيراد<input type="file" id="ct-imp" accept="application/json" hidden></label></span></div>
+    <div id="ct-list" style="display:grid;gap:10px;margin-top:10px"></div>`;
+  function bindSeguimiento() {
+    let C = loadCt();
+    const sugg = c => { const used = new Set(c.sent || []); return RQ.MSG.filter(m => m.st.includes(c.st) && m.au.includes(c.au) && !used.has(m.id)).slice(0, 3); };
+    const render = () => {
+      const t = dIso(); C.sort((a, b) => (a.next || "9") < (b.next || "9") ? -1 : 1); const due = C.filter(c => c.next && c.next <= t).length;
+      $("#ct-sum").textContent = C.length ? `${C.length} محاورًا · ${due} يحتاجون تواصلًا اليوم` : "لا يوجد محاورون بعد.";
+      $("#ct-list").innerHTML = C.map((c, i) => { const s = sugg(c); return `<article class="card${c.next && c.next <= t ? " hl" : ""}"><div class="row between"><h3>${esc(c.n)} <span class="tag">${esc(audLbl(c.au))}</span> <span class="tag gold">${esc(stLbl(c.st))}</span></h3><span class="small ${c.next && c.next <= t ? "" : "muted"}">${c.next && c.next <= t ? "⏰ موعد التواصل اليوم" : "التالي: " + esc(c.next || "—")}</span></div>
+        ${c.i ? `<p class="small">${esc(c.i)}</p>` : ""}<p class="small muted">آخر تواصل: ${esc(c.last || "—")} · أُرسل له: ${(c.sent || []).length} رسالة</p>
+        <div class="small"><b>رسائل مقترحة لم تُرسل له:</b> ${s.map(m => `<button type="button" class="chip" data-ctm="${i}|${m.id}">${esc(m.t)}</button>`).join(" ") || "—"}</div>
+        <div class="actions"><button type="button" data-ctdone="${i}">✔ تواصلت اليوم (+3 أيام)</button><select data-ctst="${i}">${RQ.STAGES.map(st => `<option value="${st.id}"${st.id === c.st ? " selected" : ""}>${esc(st.ar)}</option>`).join("")}</select><a class="btn" href="#componer">المُركِّب</a><button type="button" data-ctdel="${i}">حذف</button></div></article>`; }).join("");
+    };
+    $("#ct-form").onsubmit = e => { e.preventDefault(); C.push({ n: $("#ct-n").value.trim(), au: $("#ct-a").value, st: $("#ct-s").value, i: $("#ct-i").value.trim(), next: $("#ct-d").value, last: "", sent: [] }); saveCt(C); e.target.reset(); $("#ct-d").value = dIso(3); render(); toast("أُضيف"); };
+    $("#ct-list").addEventListener("click", e => {
+      const m = e.target.closest("[data-ctm]"); if (m) { const [i, id] = m.dataset.ctm.split("|"); const msg = RQ.MSG.find(x => x.id === id); copy(msg.es, "نُسخت الرسالة؛ سُجّلت له"); const c = C[+i]; c.sent = [...(c.sent || []), id]; c.last = dIso(); c.next = dIso(3); saveCt(C); render(); return; }
+      const d = e.target.closest("[data-ctdone]"); if (d) { const c = C[+d.dataset.ctdone]; c.last = dIso(); c.next = dIso(3); saveCt(C); render(); return; }
+      const x = e.target.closest("[data-ctdel]"); if (x) { if (x.dataset.confirm) { C.splice(+x.dataset.ctdel, 1); saveCt(C); render(); } else { x.dataset.confirm = 1; x.textContent = "تأكيد الحذف"; } }
+    });
+    $("#ct-list").addEventListener("change", e => { const s = e.target.closest("[data-ctst]"); if (s) { C[+s.dataset.ctst].st = s.value; saveCt(C); render(); } });
+    $("#ct-exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(C)], { type: "application/json" })); a.download = `rafiq-seguimiento-${dIso()}.json`; a.click(); };
+    $("#ct-imp").onchange = async e => { try { const j = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(j)) throw 0; C = j; saveCt(C); render(); toast("استُورد"); } catch (er) { toast("ملف غير صالح"); } };
+    render();
+  }
+
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
-    const files = ["lib", "a1", "a2", "b1", "c1", "extra", "engine"];
-    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=2`; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); })), Promise.resolve());
+    const files = ["lib", "a1", "a2", "b1", "c1", "extra", "phrases-a", "phrases-b", "islam", "vocab", "engine"], optional = new Set(["phrases-a", "phrases-b", "islam", "vocab"]);
+    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=3`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;
   }
-  window.RAFIQ = { TTS, toast, copy, esc, head, S, saveS };
+  window.RAFIQ = { TTS, NV, toast, copy, esc, head, S, saveS };
 
   /* ---------- router ---------- */
-  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "buscar"];
+  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "confianza", "preguntas", "libros", "seguimiento", "buscar"];
   function route() {
     const h = decodeURIComponent(location.hash.slice(1)); const [name0, ...rest] = h.split("/"); const name = ORDER.includes(name0) ? name0 : "inicio"; const arg = rest.join("/");
     TTS.stop(); REG = new Map(); if ("speechSynthesis" in window) speechSynthesis.cancel();
@@ -622,12 +751,15 @@
     if (name === "traducir") bindTrad();
     if (name === "tarjetas") bindCard(arg);
     if (name === "revision") bindRev();
+    if (name === "libros") bindLibros();
+    if (name === "seguimiento") bindSeguimiento();
+    if (name === "preguntas") { $("#fq-q").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$("[data-fq]").forEach(c => c.hidden = q && !c.dataset.fq.includes(q)); }; if (arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "start" }); }
     if (name === "aprender") loadLearn().then(() => { if (location.hash.slice(1).split("/")[0] === "aprender") { window.LEARN.mount(view, arg); window.scrollTo({ top: 0 }); } }).catch(() => { view.innerHTML = `<p class="notice amber">تعذّر تحميل قسم التعلّم. تحقّق من الاتصال وأعد المحاولة.</p>`; });
     gemInit();
     if ((name === "avisos" || name === "guia") && arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "center" });
     if (name === "curso" && arg && $("#c" + arg)) $("#c" + arg).scrollIntoView({ block: "start" });
     if (name === "ideas" && arg === "series" && $("#series")) $("#series").scrollIntoView({ block: "start" });
-    if (!["mensajes", "avisos", "guia", "curso", "ideas", "aprender"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
+    if (!["mensajes", "avisos", "guia", "curso", "ideas", "aprender", "preguntas"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
     $("#q").value = name === "buscar" ? decodeURIComponent(arg || "") : "";
   }
   window.addEventListener("hashchange", route);
