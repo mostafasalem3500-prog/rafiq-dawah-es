@@ -211,6 +211,23 @@ app.post("/api/translate", async (req, res) => {
   } catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
 });
 
+/* IslamHouse document text (PDF → text) for reading and quoting; restricted to IslamHouse Spanish files */
+const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+app.get("/api/ih/text", async (req, res) => {
+  const u = String(req.query.u || "");
+  if (!/^https:\/\/d1\.islamhouse\.com\/data\/es\/[\w\/.\-%]+\.pdf$/i.test(u)) return res.status(400).json({ error: "bad_url" });
+  const key = "pdf:" + u; const hit = cacheGet(key, 30 * DAY); if (hit) return send(res, hit, 86400);
+  try {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+    const r = await fetch(u, { signal: ctl.signal, headers: { "User-Agent": "rafiq-dawah-es/1.0" } }); clearTimeout(to);
+    if (!r.ok) throw new Error("upstream " + r.status);
+    const buf = Buffer.from(await r.arrayBuffer()); if (buf.length > 15 * 1024 * 1024) throw new Error("too large");
+    const d = await pdfParse(buf);
+    const out = { url: u, pages: d.numpages, text: d.text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), source: "IslamHouse.com" };
+    cacheSet(key, out); send(res, out, 86400);
+  } catch (e) { fail(res, e); }
+});
+
 require("./tts").mount(app);
 
 app.get("/healthz", (req, res) => res.json({ ok: true }));
