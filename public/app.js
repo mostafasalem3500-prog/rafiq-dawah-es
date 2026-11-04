@@ -185,7 +185,7 @@
   const wa = t => `https://wa.me/?text=${encodeURIComponent(t)}`;
   function actions(o, extra = "") {
     const k = reg(o);
-    if (o.id) extra = `<button type="button" data-fav="${o.id}" aria-pressed="${S.favs.includes(o.id)}" title="حفظ في المفضلة">${S.favs.includes(o.id) ? "★ محفوظة" : "☆ احفظ"}</button>${/^m\d/.test(o.id) ? `<a class="btn" href="#tarjetas/${o.id}">🖼 بطاقة</a>` : ""}` + extra;
+    if (o.id) extra = `<button type="button" data-fav="${o.id}" aria-pressed="${S.favs.includes(o.id)}" title="حفظ في المفضلة">${S.favs.includes(o.id) ? "★ محفوظة" : "☆ احفظ"}</button>${/^m[a-e]?\d/.test(o.id) ? `<a class="btn" href="#tarjetas/${o.id}">🖼 بطاقة</a>` : ""}` + extra;
     return `<div class="actions"><button type="button" data-act="say" data-k="${k}">🔊 استمع</button>${o.ar ? `<button type="button" data-act="say-ar" data-k="${k}">🔊 المعنى</button>` : ""}<button type="button" data-act="copy" data-k="${k}">نسخ</button>${(o.q && o.q.length) || (o.h && o.h.length) ? `<button type="button" data-act="copyref" data-k="${k}">نسخ مع الآية والحديث</button>` : ""}<a class="btn" href="${wa(o.es)}" target="_blank" rel="noopener">واتساب</a>${extra}</div>`;
   }
   /* البحث: كلمات مطوية (بلا تشكيل ولا علامات) ومطابقة كل الكلمات، وتمييز الكلمات المطابقة */
@@ -604,7 +604,8 @@
 
   /* ---------- image cards ---------- */
   V.tarjetas = (arg) => `${head("صانع البطاقات", "حوّل أي رسالة إلى صورة جاهزة لحالة واتساب أو إنستغرام، مع نص الآية من ترجمتها المعتمدة ومصدرها.")}
-    <div class="two"><div class="card"><div class="field"><label for="cd-msg">الرسالة</label><select id="cd-msg">${RQ.MSG.map(m => `<option value="${m.id}"${m.id === arg ? " selected" : ""}>${esc(m.t)}</option>`).join("")}<option value="custom">نص من عندي…</option></select></div>
+    <div class="two"><div class="card"><div class="field"><label for="cd-find">ابحث عن رسالة (${RQ.MSG.length.toLocaleString("en-US")})</label><input type="search" id="cd-find" placeholder="كلمة عربية أو إسبانية…" dir="auto" autocomplete="off"></div>
+      <div class="field"><label for="cd-msg">الرسالة</label><select id="cd-msg">${RQ.SITU.map(x => { const ms = RQ.MSG.filter(m => m.si[0] === x.id); return ms.length ? `<optgroup label="${esc(x.ar)}">${ms.map(m => `<option value="${m.id}"${m.id === arg ? " selected" : ""}>${esc(m.t)}</option>`).join("")}</optgroup>` : ""; }).join("")}<option value="custom">نص من عندي…</option></select></div>
       <div class="field" id="cd-custom-wrap" hidden><label for="cd-custom">النص الإسباني</label><textarea id="cd-custom" lang="es" dir="ltr" placeholder="Escribe aquí tu mensaje…"></textarea></div>
       <div class="form"><div class="field"><label for="cd-size">المقاس</label><select id="cd-size"><option value="1080x1350">منشور 4:5</option><option value="1080x1920">حالة أو ستوري</option><option value="1080x1080">مربع</option></select></div>
       <div class="field"><label for="cd-theme">الطابع</label><select id="cd-theme"><option value="green">أخضر وذهبي</option><option value="light">فاتح</option><option value="night">ليلي</option></select></div></div>
@@ -942,7 +943,7 @@
     if (name === "biblioteca") { $$("[data-lib]").forEach(b => b.onclick = () => { LIB.tab = b.dataset.lib; renderLib(); }); renderLib(); }
     if (name === "pronunciar") bindPron();
     if (name === "traducir") bindTrad();
-    if (name === "tarjetas") bindCard(arg);
+    if (name === "tarjetas") { bindCard(arg); let ft; $("#cd-find").oninput = e => { clearTimeout(ft); ft = setTimeout(() => { const ts = toks(e.target.value); let first = null; $$("#cd-msg option").forEach(o => { if (o.value === "custom") return; const m = RQ.MSG.find(x => x.id === o.value); const ok = !ts.length || hitAll(m.t + " " + m.es + " " + m.ar, ts); o.hidden = !ok; if (ok && !first) first = o; }); $$("#cd-msg optgroup").forEach(g => g.hidden = ![...g.children].some(o => !o.hidden)); if (first && ts.length) { $("#cd-msg").value = first.value; $("#cd-msg").dispatchEvent(new Event("change")); } }, 200); }; }
     if (name === "revision") bindRev();
     if (name === "libros") bindLibros();
     if (name === "citas") bindCitas(arg);
