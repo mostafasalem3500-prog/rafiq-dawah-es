@@ -466,6 +466,7 @@
     (RQ.TRAIN || []).forEach(c => { if (hit(c.t + " " + c.points.join(" "))) R.push(["دروس الداعية", `${c.n}. ${c.t}`, `#curso/dai`, c.points[0]]); });
     (RQ.IDEAS || []).forEach(c => { if (hit(c.t + " " + c.body)) R.push(["فكرة دعوية", c.t, `#ideas`, c.body]); });
     (RQ.FAQ || []).forEach(c => { if (hit(c.es + " " + c.ar + " " + c.aes + " " + c.aar)) R.push(["سؤال باحث", c.ar, `#preguntas/${c.id}`, c.aes]); });
+    (RQ.QUOTES || []).forEach(c => { if (hit(c.es + " " + c.ar)) R.push(["مقتطف IslamHouse", qBook(c.b)[0], `#citas/${c.id}`, c.es]); });
     (RQ.BOOKS || []).forEach(c => { if (hit(c.t + " " + c.note)) R.push(["كتاب IslamHouse", c.t, `#libros`, c.note]); });
     return `${head(`نتائج البحث عن «${esc(q)}»`, `${R.length} نتيجة`)}${R.length ? `<div style="display:grid;gap:10px">${R.map(r => `<a class="card lift" href="${r[2]}" style="text-decoration:none;color:inherit"><div class="row"><span class="tag gold">${r[0]}</span><b>${esc(r[1])}</b></div><p class="es-text small muted" lang="es">${esc(String(r[3]).slice(0, 180))}</p></a>`).join("")}</div>` : `<p class="empty">لا نتائج. جرّب كلمة أخرى بالعربية أو الإسبانية، أو ابحث في <a href="#biblioteca">المكتبة</a>.</p>`}`;
   };
@@ -602,7 +603,8 @@
     if (sign) x.fillText(sign, W / 2, H - pad * .7);
     $("#cd-note").textContent = verse && verse.text ? "نص الآية منقول كما هو من QuranEnc.com مع اسم الترجمة ورقم إصدارها." : (m && m.q.length && $("#cd-verse").checked ? "تعذّر جلب نص الآية؛ سيظهر المرجع فقط." : "");
   }
-  function bindCard() {
+  function bindCard(arg) {
+    if (arg && arg.startsWith("q:")) { const q = RQ.QUOTES.find(x => x.id === arg.slice(2)); if (q) { $("#cd-msg").value = "custom"; $("#cd-custom").value = `«${q.es}»`; $("#cd-sign").value = `${qBook(q.b)[0]} · IslamHouse.com`; $("#cd-verse").checked = false; } }
     ["#cd-msg", "#cd-size", "#cd-theme", "#cd-verse", "#cd-ar"].forEach(s => $(s).onchange = drawCard);
     let t; ["#cd-custom", "#cd-sign"].forEach(s => $(s).oninput = () => { clearTimeout(t); t = setTimeout(drawCard, 250); });
     $("#cd-dl").onclick = () => { $("#cd-canvas").toBlob(b => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `tarjeta-${$("#cd-msg").value}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("نُزّلت الصورة"); }, "image/png"); };
@@ -670,12 +672,14 @@
   V.libros = () => `${head("دليل كتب IslamHouse للداعية", "مختارات من كتب IslamHouse.com الإسبانية المجانية، مرتبة حسب المحاور ومرحلة الحوار، مع رسالة إسبانية قصيرة جاهزة لمرافقة الرابط. العناوين والروابط من IslamHouse كما هي؛ والملاحظة والرسالة من إعداد الموقع.")}
     <div class="card"><div class="form"><div class="field"><label for="bk-aud">المحاور</label><select id="bk-aud"><option value="">الجميع</option>${RQ.AUD.map(a => `<option value="${a.id}">${esc(a.ar)}</option>`).join("")}</select></div><div class="field"><label for="bk-lvl">المرحلة</label><select id="bk-lvl"><option value="">الكل</option>${[...new Set(RQ.BOOKS.map(b => b.lvl))].map(l => `<option>${l}</option>`).join("")}</select></div></div>
     <p class="notice small">ابدأ بكتب «أول تواصل» و«تعريف». كتب «مقارنة» لا تُرسل إلا لمن طلب المقارنة بنفسه وبعد بناء الثقة.</p></div>
+    <div id="bk-reader" style="margin-top:12px"></div>
     <div id="bk-list" class="grid" style="margin-top:12px"></div>
     <p class="muted small">للمزيد: تصفّح كل الكتب الإسبانية (285 كتابًا) في <a href="#biblioteca">المكتبة</a>.</p>`;
   function bindLibros() {
     let sent = {}; try { sent = JSON.parse(localStorage.getItem(LS_BOOKS) || "{}"); } catch (e) { }
     const render = () => { const a = $("#bk-aud").value, l = $("#bk-lvl").value; const list = RQ.BOOKS.filter(b => (!a || b.aud.includes(a)) && (!l || b.lvl === l));
-      $("#bk-list").innerHTML = list.map(b => { const url = `https://islamhouse.com/es/books/${b.id}/`; const msg = (RQ.BOOK_MSG[b.lvl] || "") + url; const k = reg({ es: msg }); return `<article class="card"><div class="row between"><span class="tag gold">${esc(b.lvl)}</span>${sent[b.id] ? `<span class="tag">أُرسل ${esc(sent[b.id])}</span>` : ""}</div><h3 lang="es" dir="ltr" style="text-align:left">📘 ${esc(b.t)}</h3><p class="small">${esc(b.note)}</p><p class="small muted">يناسب: ${b.aud.map(audLbl).join("، ")}</p><p class="es-text small" lang="es">${esc(msg)}</p><div class="actions"><a class="btn" href="${url}" target="_blank" rel="noopener">افتح في IslamHouse</a><button type="button" data-act="copy" data-k="${k}">نسخ الرسالة مع الرابط</button><a class="btn" href="${wa(msg)}" target="_blank" rel="noopener">واتساب</a><button type="button" data-sent="${b.id}">✔ أرسلته</button></div></article>`; }).join("") || `<p class="muted">لا كتب لهذا الاختيار.</p>`;
+      $("#bk-list").innerHTML = list.map(b => { const url = `https://islamhouse.com/es/books/${b.id}/`; const msg = (RQ.BOOK_MSG[b.lvl] || "") + url; const k = reg({ es: msg }); return `<article class="card"><div class="row between"><span class="tag gold">${esc(b.lvl)}</span>${sent[b.id] ? `<span class="tag">أُرسل ${esc(sent[b.id])}</span>` : ""}</div><h3 lang="es" dir="ltr" style="text-align:left">📘 ${esc(b.t)}</h3><p class="small">${esc(b.note)}</p><p class="small muted">يناسب: ${b.aud.map(audLbl).join("، ")}</p><p class="es-text small" lang="es">${esc(msg)}</p><div class="actions"><button type="button" data-read="${b.id}">📖 اقرأ هنا واقتبس</button><a class="btn" href="${url}" target="_blank" rel="noopener">افتح في IslamHouse</a><button type="button" data-act="copy" data-k="${k}">نسخ الرسالة مع الرابط</button><a class="btn" href="${wa(msg)}" target="_blank" rel="noopener">واتساب</a><button type="button" data-sent="${b.id}">✔ أرسلته</button></div></article>`; }).join("") || `<p class="muted">لا كتب لهذا الاختيار.</p>`;
+      $$("[data-read]").forEach(x => x.onclick = () => openReader(x.dataset.read, $("#bk-reader")));
       $$("[data-sent]").forEach(x => x.onclick = () => { sent[x.dataset.sent] = new Date().toLocaleDateString("ar-SA-u-nu-latn"); try { localStorage.setItem(LS_BOOKS, JSON.stringify(sent)); } catch (e) { } render(); toast("سُجّل الإرسال"); }); };
     $("#bk-aud").onchange = render; $("#bk-lvl").onchange = render; render();
   }
@@ -717,6 +721,42 @@
     render();
   }
 
+  /* ---------- مقتطفات IslamHouse وقارئ الكتب ---------- */
+  const qBook = id => RQ.QBOOKS[id] || ["IslamHouse", "books", ""];
+  const qUrl = q => `https://islamhouse.com/es/${qBook(q.b)[1]}/${q.b}/`;
+  const qCite = q => `${q.es}\n— «${qBook(q.b)[0]}», IslamHouse.com: ${qUrl(q)}`;
+  V.citas = (arg) => `${head("مقتطفات من كتب IslamHouse", "نصوص قصيرة منقولة حرفيًّا من كتب IslamHouse.com الإسبانية، جاهزة للإرسال مع مصدرها، مصنفة حسب الموضوع ومرحلة الحوار. المعنى العربي ترجمة تقريبية من إعداد الموقع للمساعدة على الفهم. ولتقتبس بنفسك من أي كتاب افتح «دليل الكتب» واضغط «اقرأ هنا».")}
+    <div class="card"><div class="form"><div class="field"><label for="ct-t">الموضوع</label><select id="qt-t"><option value="">الكل</option>${Object.entries(RQ.QTOPICS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div><div class="field"><label for="qt-l">المرحلة</label><select id="qt-l"><option value="">الكل</option><option>بداية</option><option>تعريف</option><option>تعمق</option></select></div></div>
+    <p class="notice small">«بداية» للتعارف الأول، و«تعريف» بعد أن يسأل، و«تعمق» بعد بناء الثقة.</p></div>
+    <div id="qt-list" style="display:grid;gap:12px;margin-top:12px"></div>`;
+  function bindCitas(arg) {
+    const render = () => { const t = $("#qt-t").value, l = $("#qt-l").value; $("#qt-list").innerHTML = RQ.QUOTES.filter(q => (!t || q.topic === t) && (!l || q.lvl === l)).map(q => { const k = reg({ es: qCite(q), ar: q.ar }); const ks = reg({ es: q.es }); return `<article class="card${q.id === arg ? " hl" : ""}" id="${q.id}"><div class="row between"><span class="tag">${esc(RQ.QTOPICS[q.topic])}</span><span class="tag gold">${esc(q.lvl)}</span></div>
+      <blockquote class="es-text big" lang="es">«${esc(q.es)}»</blockquote><p class="small muted">— <a href="${qUrl(q)}" target="_blank" rel="noopener" lang="es">${esc(qBook(q.b)[0])}</a>، IslamHouse.com</p>
+      <p class="ar-text small"><span class="muted">المعنى (ترجمة تقريبية):</span> ${esc(q.ar)}</p><p class="notice small">💡 ${esc(q.note)}</p>
+      <div class="actions"><button type="button" data-act="say" data-k="${ks}">🔊 استمع</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المصدر</button><a class="btn" href="${wa(qCite(q))}" target="_blank" rel="noopener">واتساب</a><a class="btn" href="#tarjetas/q:${q.id}">🖼 بطاقة</a></div></article>`; }).join(""); };
+    $("#qt-t").onchange = render; $("#qt-l").onchange = render; render();
+    if (arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "center" });
+  }
+  /* قارئ نصوص كتب IslamHouse */
+  let IHIDX = null;
+  async function ihFind(id) {
+    if (!IHIDX) { IHIDX = new Map(); for (const block of ["books", "articles"]) { for (let p = 1; p <= 15; p++) { const j = await api(`/api/ih/${block}?page=${p}`); j.items.forEach(i => IHIDX.set(i.id, i)); if (p >= j.pages) break; } } }
+    return IHIDX.get(+id);
+  }
+  async function openReader(id, box) {
+    box.innerHTML = `<div class="card"><p class="muted">جارٍ تحميل نص الكتاب من IslamHouse…</p></div>`; box.scrollIntoView({ behavior: "smooth" });
+    try {
+      const it = await ihFind(id); const f = it && it.files.find(x => /pdf/i.test(x.ext)); if (!f) throw new Error("لا يوجد ملف PDF لهذا العنوان");
+      const j = await api(`/api/ihtext?u=${encodeURIComponent(f.url)}`); if (!j.text) throw new Error("تعذّر استخراج النص (قد يكون الكتاب صورًا)");
+      const paras = j.text.replace(/(\w)-\n(\w)/g, "$1$2").split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 40 && !/pdfMachine|www\.broadgun/i.test(p));
+      const cite = `— «${it.title}», IslamHouse.com: ${it.url}`;
+      box.innerHTML = `<div class="card"><div class="row between"><h2 lang="es" dir="ltr" style="text-align:left">📖 ${esc(it.title)}</h2><button type="button" id="rd-close">إغلاق</button></div><p class="muted small">${j.pages} صفحة · النص مستخرج آليًّا من ملف PDF الأصلي؛ قد تسقط بعض الرموز (مثل ﷺ) أو تختلط أرقام الصفحات بالنص، فراجع المقطع قبل إرساله. اختر أي فقرة وانسخها مع مصدرها.</p><input type="search" id="rd-q" placeholder="ابحث داخل الكتاب… (مثال: Jesús, oración)" dir="auto" style="width:100%"><div id="rd-paras" style="margin-top:10px"></div></div>`;
+      const renderP = q => { const list = paras.map((p, i) => [p, i]).filter(([p]) => !q || p.toLowerCase().includes(q)).slice(0, 120); $("#rd-paras").innerHTML = list.map(([p, i]) => { const k = reg({ es: `«${p}»\n${cite}` }); const ks = reg({ es: p }); return `<div class="rd-para"><p class="es-text" lang="es">${esc(p)}</p><div class="actions"><button type="button" data-act="say" data-k="${ks}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المصدر</button></div></div>`; }).join("") || `<p class="muted">لا نتائج.</p>`; };
+      $("#rd-q").oninput = e => renderP(e.target.value.trim().toLowerCase()); renderP("");
+      $("#rd-close").onclick = () => { box.innerHTML = ""; };
+    } catch (e) { box.innerHTML = `<p class="notice amber">${esc(e.message)}</p>`; }
+  }
+
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
@@ -731,7 +771,7 @@
   window.RAFIQ = { TTS, NV, toast, copy, esc, head, S, saveS };
 
   /* ---------- router ---------- */
-  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "confianza", "preguntas", "libros", "seguimiento", "buscar"];
+  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "confianza", "preguntas", "libros", "seguimiento", "citas", "buscar"];
   function route() {
     const h = decodeURIComponent(location.hash.slice(1)); const [name0, ...rest] = h.split("/"); const name = ORDER.includes(name0) ? name0 : "inicio"; const arg = rest.join("/");
     TTS.stop(); REG = new Map(); if ("speechSynthesis" in window) speechSynthesis.cancel();
@@ -752,6 +792,7 @@
     if (name === "tarjetas") bindCard(arg);
     if (name === "revision") bindRev();
     if (name === "libros") bindLibros();
+    if (name === "citas") bindCitas(arg);
     if (name === "seguimiento") bindSeguimiento();
     if (name === "preguntas") { $("#fq-q").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$("[data-fq]").forEach(c => c.hidden = q && !c.dataset.fq.includes(q)); }; if (arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "start" }); }
     if (name === "aprender") loadLearn().then(() => { if (location.hash.slice(1).split("/")[0] === "aprender") { window.LEARN.mount(view, arg); window.scrollTo({ top: 0 }); } }).catch(() => { view.innerHTML = `<p class="notice amber">تعذّر تحميل قسم التعلّم. تحقّق من الاتصال وأعد المحاولة.</p>`; });
