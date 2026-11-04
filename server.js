@@ -216,7 +216,7 @@ app.get("/healthz", (req, res) => res.json({ ok: true }));
 /* ---------- static ---------- */
 app.use(express.static(path.join(__dirname, "public"), {
   extensions: ["html"],
-  setHeaders(res, p) { if (/\.(js|css|json|webmanifest)$/.test(p)) res.setHeader("Cache-Control", "public, max-age=600"); if (/sw\.js$/.test(p)) res.setHeader("Cache-Control", "no-cache"); }
+  setHeaders(res, p) { if (/\.(js|css|json|webmanifest|html)$/.test(p)) res.setHeader("Cache-Control", "no-cache"); if (/sw\.js$/.test(p)) res.setHeader("Cache-Control", "no-cache"); }
 }));
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "index.html")));
 
