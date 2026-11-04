@@ -23,7 +23,7 @@ async function discoverTts() {
 const DAILY = Number(process.env.TTS_DAILY_LIMIT || 2000);
 
 /* presets: [id, Arabic label, gender, Gemini voice, accent instruction] */
-const ACC = { es: "con acento de España", mx: "con acento mexicano", la: "con acento latinoamericano neutro", ar: "" };
+const ACC = { es: "with a Spain Spanish accent", mx: "with a Mexican Spanish accent", la: "with a neutral Latin American Spanish accent", ar: "" };
 const VOICES = {
   es: [
     ["es-kore", "كوري — إسبانيا", "F", "Kore", ACC.es], ["es-puck", "بَك — إسبانيا", "M", "Puck", ACC.es],
@@ -44,15 +44,18 @@ function wav(pcm, rate = 24000) {
   return Buffer.concat([h, pcm]);
 }
 
+/* a clip much longer than the text means the model also read the instruction aloud */
+const tooLong = (buf, text) => { const sec = (buf.length - 44) / (24000 * 2); return sec > 2.5 + text.length / 7; };
 async function synth(text, v) {
   const lang = v[0].startsWith("ar") ? "ar" : "es";
-  const prompt = lang === "es"
-    ? `Lee en voz alta en español, con voz natural, cálida y pausada ${v[4]}. Lee exactamente este texto, sin añadir nada:\n${text}`
-    : `اقرأ النص التالي بالعربية الفصحى بصوت طبيعي هادئ وواضح، كما هو دون أي زيادة:\n${text}`;
+  const styled = lang === "es" ? `Say in a natural, warm, unhurried voice ${v[4]}: ${text}` : `Say in a calm, clear Modern Standard Arabic voice: ${text}`;
   let lastErr; await discoverTts();
   for (const model of MODELS) {
-    try { return await synthOnce(model, prompt, v); }
-    catch (e) { lastErr = e; if (!/demand|overload|unavailable|429|500|503|not found|timeout|aborted/i.test(String(e.message))) break; }
+    try {
+      let b = await synthOnce(model, styled, v);
+      if (tooLong(b, text)) { b = await synthOnce(model, text, v); if (tooLong(b, text)) throw new Error("audio length check failed"); }
+      return b;
+    } catch (e) { lastErr = e; if (!/demand|overload|unavailable|429|500|503|not found|timeout|aborted|length check/i.test(String(e.message))) break; }
   }
   throw lastErr;
 }
@@ -91,7 +94,7 @@ function mount(app) {
     const v = BYID.get(String(req.query.v || ""));
     if (!text || text.length > 600) return res.status(400).json({ error: "bad_text" });
     if (!v) return res.status(400).json({ error: "bad_voice" });
-    const k = crypto.createHash("sha1").update(`${v[0]}|${text}`).digest("hex");
+    const k = crypto.createHash("sha1").update(`p2|${v[0]}|${text}`).digest("hex");
     const send = b => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("Content-Length", b.length); res.end(b); };
     const hit = await cached(k); if (hit) return send(hit);
     if (!KEY) return res.status(503).json({ error: "disabled" });
