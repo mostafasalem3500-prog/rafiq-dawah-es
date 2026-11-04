@@ -160,21 +160,32 @@ function geminiGate(req, res) {
   if (trDay.n >= TR_DAILY) { res.status(429).json({ error: "daily", message: "بلغ الموقع الحد اليومي لطلبات Gemini" }); return false; }
   return true;
 }
-async function gemini(system, user, temperature = 0.2) {
-  trDay.n++;
-  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 25000);
+const GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"].filter((m, i, a) => m && a.indexOf(m) === i);
+let geminiPreferred = null; // last model that answered successfully
+async function geminiOnce(model, system, user, temperature) {
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature, maxOutputTokens: 4096 } })
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { console.error("gemini", r.status, JSON.stringify(j).slice(0, 300)); throw new Error((j.error && j.error.message) || `Gemini HTTP ${r.status}`); }
-    const out = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
-    if (!out) throw new Error("لم يُرجع Gemini نصًّا (ربما حُجب الطلب)");
+    if (!r.ok) { const e = new Error((j.error && j.error.message) || `Gemini HTTP ${r.status}`); e.status = r.status; throw e; }
+    const out = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || "").join("").trim();
+    if (!out) { const e = new Error("لم يُرجع Gemini نصًّا (ربما حُجب الطلب)"); e.status = 204; throw e; }
     return out;
-  } catch (e) { throw new Error(e.name === "AbortError" ? "انتهت مهلة الاتصال بـ Gemini" : String(e.message || e)); }
+  } catch (e) { if (e.name === "AbortError") { const t = new Error("انتهت مهلة الاتصال بـ Gemini"); t.status = 504; throw t; } throw e; }
   finally { clearTimeout(to); }
+}
+async function gemini(system, user, temperature = 0.2) {
+  trDay.n++;
+  const order = geminiPreferred ? [geminiPreferred, ...GEMINI_FALLBACKS.filter(m => m !== geminiPreferred)] : GEMINI_FALLBACKS;
+  let last;
+  for (const m of order) {
+    try { const out = await geminiOnce(m, system, user, temperature); geminiPreferred = m; return out; }
+    catch (e) { last = e; console.error("gemini", m, e.status, String(e.message).slice(0, 160)); if (![429, 500, 503, 504, 404].includes(e.status) && !/demand|overload|unavailable|not found/i.test(e.message)) break; }
+  }
+  throw last;
 }
 const TUTOR_SYSTEM = `Eres «المعلّم», un profesor de español paciente y preciso para estudiantes cuya lengua materna es el árabe, dentro de una web de dawah sunní.
 - Responde SIEMPRE en árabe estándar sencillo; escribe los ejemplos en español entre comillas «...» y su traducción árabe.

@@ -7,6 +7,7 @@ const path = require("path");
 
 const KEY = process.env.GEMINI_API_KEY || "";
 const MODEL = process.env.GEMINI_TTS_MODEL || "gemini-2.5-flash-preview-tts";
+const MODELS = [MODEL, "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"].filter((m, i, a) => a.indexOf(m) === i);
 const DAILY = Number(process.env.TTS_DAILY_LIMIT || 1500);
 
 /* presets: [id, Arabic label, gender, Gemini voice, accent instruction] */
@@ -36,9 +37,17 @@ async function synth(text, v) {
   const prompt = lang === "es"
     ? `Lee en voz alta en español, con voz natural, cálida y pausada ${v[4]}. Lee exactamente este texto, sin añadir nada:\n${text}`
     : `اقرأ النص التالي بالعربية الفصحى بصوت طبيعي هادئ وواضح، كما هو دون أي زيادة:\n${text}`;
+  let lastErr;
+  for (const model of MODELS) {
+    try { return await synthOnce(model, prompt, v); }
+    catch (e) { lastErr = e; if (!/demand|overload|unavailable|429|500|503|not found|timeout|aborted/i.test(String(e.message))) break; }
+  }
+  throw lastErr;
+}
+async function synthOnce(model, prompt, v) {
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`, {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: v[3] } } } } })
     });
