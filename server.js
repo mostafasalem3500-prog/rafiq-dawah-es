@@ -161,7 +161,7 @@ function geminiGate(req, res) {
   return true;
 }
 /* model discovery: Google retires model names often, so we ask the API which models this key can use */
-let GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
+let GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
 let modelsAt = 0;
 const verOf = n => { const m = /gemini-(\d+(?:\.\d+)?)/.exec(n); return m ? parseFloat(m[1]) : 0; };
 async function discoverModels() {
@@ -173,7 +173,7 @@ async function discoverModels() {
     const ok = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""))
       .filter(n => /^gemini-/.test(n) && /flash/.test(n) && !/tts|image|live|audio|embed|thinking|exp|preview-\d\d-\d\d/.test(n));
     const ranked = ok.sort((a, b) => (verOf(b) - verOf(a)) || (/lite/.test(a) - /lite/.test(b)));
-    GEMINI_FALLBACKS = [GEMINI_MODEL, ...ranked.filter(n => !/lite/.test(n) && !/latest/.test(n)).slice(0, 3), ...ranked.filter(n => /lite/.test(n)).slice(0, 2), "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
+    GEMINI_FALLBACKS = [GEMINI_MODEL, ...ranked.filter(n => /lite/.test(n) && !/preview/.test(n)).slice(0, 1), ...ranked.filter(n => !/lite/.test(n) && !/latest/.test(n)).slice(0, 2), ...ranked.filter(n => /lite/.test(n)).slice(0, 2), "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
     console.log("gemini models:", GEMINI_FALLBACKS.join(", "));
   } catch (e) { console.error("gemini models discovery", e.message); }
 }
@@ -181,7 +181,7 @@ discoverModels();
 let geminiPreferred = null; // last model that answered successfully
 const noThinkCfg = new Set(); // models that rejected thinkingConfig
 async function geminiOnce(model, system, user, temperature) {
-  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 35000);
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 18000);
   try {
     const gen = { temperature, maxOutputTokens: 4096 };
     if (/gemini-3/.test(model) && !noThinkCfg.has(model)) gen.thinkingConfig = { thinkingLevel: "low" };
@@ -201,8 +201,9 @@ async function geminiOnce(model, system, user, temperature) {
 async function gemini(system, user, temperature = 0.2) {
   trDay.n++; await discoverModels();
   const order = geminiPreferred ? [geminiPreferred, ...GEMINI_FALLBACKS.filter(m => m !== geminiPreferred)] : GEMINI_FALLBACKS;
-  let last;
+  let last; const t0 = Date.now();
   for (const m of order) {
+    if (Date.now() - t0 > 40000) break;
     try { const out = await geminiOnce(m, system, user, temperature); geminiPreferred = m; return out; }
     catch (e) { last = e; console.error("gemini", m, e.status, String(e.message).slice(0, 160)); if (![429, 500, 503, 504, 404].includes(e.status) && !/demand|overload|unavailable|not found/i.test(e.message)) break; }
   }
