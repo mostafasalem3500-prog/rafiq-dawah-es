@@ -136,6 +136,7 @@ app.get("/api/ih/:block", async (req, res) => {
 
 /* ---------- Gemini translation (key stays on the server) ---------- */
 const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
+const spend = require("./spend");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "";
 const TR_DAILY = Number(process.env.TRANSLATE_DAILY_LIMIT || 300);
 const trHits = new Map(); let trDay = { d: "", n: 0 };
@@ -152,6 +153,7 @@ app.use("/api/translate", express.json({ limit: "20kb" }));
 /* shared Gemini call + per-IP / daily limits */
 function geminiGate(req, res) {
   if (!GEMINI_KEY) { res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY بعد" }); return false; }
+  if (!spend.allowed("text")) { res.status(503).json({ error: "budget", message: "بلغ الموقع سقف الميزانية الشهرية لـ Gemini؛ تعود الخدمة أول الشهر القادم. استعمل رابط Google في الأثناء." }); return false; }
   const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
   const now = Date.now(); const h = (trHits.get(ip) || []).filter(t => now - t < 60000);
   if (h.length >= 12) { res.status(429).json({ error: "rate", message: "طلبات كثيرة؛ انتظر دقيقة" }); return false; }
@@ -192,6 +194,7 @@ async function geminiOnce(model, system, user, temperature) {
     if (r.status === 400 && gen.thinkingConfig) { noThinkCfg.add(model); clearTimeout(to); return geminiOnce(model, system, user, temperature); }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error((j.error && j.error.message) || `Gemini HTTP ${r.status}`); e.status = r.status; throw e; }
+    spend.record(model, j.usageMetadata, "text");
     const out = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || "").join("").trim();
     if (!out) { const e = new Error("لم يُرجع Gemini نصًّا (ربما حُجب الطلب)"); e.status = 204; throw e; }
     return out;
@@ -226,7 +229,8 @@ app.post("/api/tutor", async (req, res) => {
   try { const out = await gemini(TUTOR_SYSTEM, `Modo: ${m}. Nivel del alumno: ${lv}.\n\n${t}`, 0.3); const result = { text: out, model: GEMINI_MODEL }; cacheSet(ck, result); res.setHeader("Cache-Control", "no-store"); res.json(result); }
   catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
 });
-app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY, model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : null, models: GEMINI_KEY ? GEMINI_FALLBACKS : [] }));
+app.get("/api/usage", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json(spend.report()); });
+app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY && spend.allowed("text"), model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : null, models: GEMINI_KEY ? GEMINI_FALLBACKS : [] }));
 app.post("/api/translate", async (req, res) => {
   const { text, dir, tone } = req.body || {};
   const t = String(text || "").trim();

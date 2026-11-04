@@ -6,19 +6,21 @@ const fs = require("fs");
 const path = require("path");
 
 const KEY = process.env.GEMINI_API_KEY || "";
-const MODEL = process.env.GEMINI_TTS_MODEL || "gemini-2.5-flash-preview-tts";
-let MODELS = [MODEL, "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"].filter((m, i, a) => a.indexOf(m) === i);
+const spend = require("./spend");
+const MODEL = process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-lite-tts";
+let MODELS = [MODEL, "gemini-3.8-flash-tts", "gemini-2.5-flash-preview-tts"].filter((m, i, a) => a.indexOf(m) === i);
 let ttsModelsAt = 0;
 async function discoverTts() {
   if (!KEY || Date.now() - ttsModelsAt < 6 * 3600 * 1000) return; ttsModelsAt = Date.now();
   try {
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": KEY } }); const j = await r.json(); if (!r.ok) return;
-    const tts = (j.models || []).map(m => m.name.replace(/^models\//, "")).filter(n => /tts/.test(n)).sort((a, b) => (/flash/.test(b) - /flash/.test(a)) || b.localeCompare(a));
-    if (tts.length) MODELS = [MODEL, ...tts].filter((m, i, a) => a.indexOf(m) === i && (m !== MODEL || tts.includes(m)));
+    const tts = (j.models || []).map(m => m.name.replace(/^models\//, "")).filter(n => /tts/.test(n) && !/pro/.test(n));
+    const rank = n => (/flash-lite-tts$/.test(n) ? 0 : /flash-tts$/.test(n) ? 1 : /preview/.test(n) ? 3 : 2) * 100 - parseFloat((/(\d+\.\d+)/.exec(n) || [0, 0])[1]);
+    if (tts.length) MODELS = [MODEL, ...tts.sort((a, b) => rank(a) - rank(b))].filter((m, i, a) => a.indexOf(m) === i && (m !== MODEL || tts.includes(m))).slice(0, 3);
     console.log("tts models:", MODELS.join(", "));
   } catch (e) { }
 }
-const DAILY = Number(process.env.TTS_DAILY_LIMIT || 1500);
+const DAILY = Number(process.env.TTS_DAILY_LIMIT || 2000);
 
 /* presets: [id, Arabic label, gender, Gemini voice, accent instruction] */
 const ACC = { es: "con acento de España", mx: "con acento mexicano", la: "con acento latinoamericano neutro", ar: "" };
@@ -63,6 +65,7 @@ async function synthOnce(model, prompt, v) {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((j.error && j.error.message) || `HTTP ${r.status}`);
+    spend.record(model, j.usageMetadata, "tts");
     const part = (j.candidates?.[0]?.content?.parts || []).find(p => p.inlineData && p.inlineData.data);
     if (!part) throw new Error("no audio returned");
     const m = /rate=(\d+)/.exec(part.inlineData.mimeType || "");
@@ -70,7 +73,7 @@ async function synthOnce(model, prompt, v) {
   } finally { clearTimeout(to); }
 }
 
-const DIR = process.env.TTS_CACHE_DIR || path.join(require("os").tmpdir(), "rafiq-tts");
+const DIR = process.env.TTS_CACHE_DIR || path.join(process.env.DATA_DIR || require("os").tmpdir(), "tts");
 try { fs.mkdirSync(DIR, { recursive: true }); } catch (e) { }
 const mem = new Map(); let memBytes = 0; const MEM_MAX = 80 * 1024 * 1024;
 const inflight = new Map(); let day = { d: "", n: 0 }; const ipHits = new Map();
@@ -93,6 +96,7 @@ function mount(app) {
     const hit = await cached(k); if (hit) return send(hit);
     if (!KEY) return res.status(503).json({ error: "disabled" });
     if (Date.now() < coolUntil) return res.status(503).json({ error: "quota_cooldown" });
+    if (!spend.allowed("tts")) return res.status(503).json({ error: "budget" });
     if (!inflight.has(k)) {
       const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
       const now = Date.now(); const h = (ipHits.get(ip) || []).filter(t => now - t < 60000);
