@@ -136,7 +136,7 @@ app.get("/api/ih/:block", async (req, res) => {
 
 /* ---------- Gemini translation (key stays on the server) ---------- */
 const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "";
 const TR_DAILY = Number(process.env.TRANSLATE_DAILY_LIMIT || 300);
 const trHits = new Map(); let trDay = { d: "", n: 0 };
 const TR_SYSTEM = `Eres un traductor profesional árabe↔español al servicio de predicadores musulmanes sunníes (Ahl al-Sunnah wal-Jamá'ah).
@@ -161,7 +161,7 @@ function geminiGate(req, res) {
   return true;
 }
 /* model discovery: Google retires model names often, so we ask the API which models this key can use */
-let GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
+let GEMINI_FALLBACKS = [GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
 let modelsAt = 0;
 const verOf = n => { const m = /gemini-(\d+(?:\.\d+)?)/.exec(n); return m ? parseFloat(m[1]) : 0; };
 async function discoverModels() {
@@ -173,7 +173,7 @@ async function discoverModels() {
     const ok = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""))
       .filter(n => /^gemini-/.test(n) && /flash/.test(n) && !/tts|image|live|audio|embed|thinking|exp|preview-\d\d-\d\d/.test(n));
     const ranked = ok.sort((a, b) => (verOf(b) - verOf(a)) || (/lite/.test(a) - /lite/.test(b)));
-    GEMINI_FALLBACKS = [GEMINI_MODEL, ...ranked.filter(n => !/lite/.test(n)).slice(0, 3), ...ranked.filter(n => /lite/.test(n)).slice(0, 2), "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
+    GEMINI_FALLBACKS = [GEMINI_MODEL, ...ranked.filter(n => !/lite/.test(n) && !/latest/.test(n)).slice(0, 3), ...ranked.filter(n => /lite/.test(n)).slice(0, 2), "gemini-flash-latest"].filter((m, i, a) => m && a.indexOf(m) === i);
     console.log("gemini models:", GEMINI_FALLBACKS.join(", "));
   } catch (e) { console.error("gemini models discovery", e.message); }
 }
