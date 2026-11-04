@@ -181,7 +181,7 @@
   function home() {
     const t = today(), dx = P.days[t] || 0, due = srsDue().length, learned = Object.keys(P.srs).length, nu = nextUnit(); const doneN = Object.keys(P.done).length;
     const nPh = L.PHRASES.reduce((a, x) => a + x.s.length, 0), nDk = L.DECKS.reduce((a, x) => a + x.w.length, 0), nIs = L.ISLAM.reduce((a, x) => a + x.w.length + x.s.length, 0);
-    const tiles = [["reto", "⚡", "تحدي اليوم", P.reto && P.reto[t] ? "أُنجز اليوم ✅" : "10 أسئلة + 30 نقطة"], ["islam", "🕌", "الإسبانية الشرعية والدعوية", `${nIs} مصطلحًا وجملة`], ["frases", "🗂️", "كتاب العبارات", `${nPh} عبارة يومية`], ["vocab", "🧩", "بطاقات المفردات", `${nDk} كلمة في ${L.DECKS.length} موضوعًا`], ["diccionario", "📖", "القاموس", "ابحث بالعربية أو الإسبانية"], ["errores", "🎯", "أخطائي", `${(P.miss || []).length} عنصرًا للمراجعة`], ["nivel", "🧭", "حدّد مستواك", "اختبار 20 سؤالًا"], ["repaso", "🔁", "المراجعة الذكية", due ? `${due} كلمة مستحقة اليوم` : "لا مراجعة مستحقة"], ["conv", "💬", "محادثات يومية", `${L.CONV.length} موقفًا بالصوت ولعب الأدوار`], ["verbos", "🔤", "مدرّب الأفعال", `${L.VERBS.length} فعلًا × 7 أزمنة`], ["habilidades", "🎯", "المهارات الأربع", "استماع، نطق، قراءة، كتابة"], ["abc", "🅰️", "الحروف والنطق", "دليل الأصوات للعربي"], ["ninos", "🧒", "ركن الصغار", "ألعاب بالصور والصوت"], ["tutor", "🧑‍🏫", "اسأل المعلّم", "شرح وتصحيح عبر Gemini"], ["progreso", "📊", "تقدّمي", "الإحصاءات والإعدادات"]];
+    const tiles = [["reto", "⚡", "تحدي اليوم", P.reto && P.reto[t] ? "أُنجز اليوم ✅" : "10 أسئلة + 30 نقطة"], ["islam", "🕌", "الإسبانية الشرعية والدعوية", `${nIs} مصطلحًا وجملة`], ["dialogo", "🗣️", "جمل الحوار مع غير المسلمين", `${L.DAWAH.reduce((a, x) => a + x.s.length, 0)} جملة جاهزة`], ["frases", "🗂️", "كتاب العبارات", `${nPh} عبارة يومية`], ["vocab", "🧩", "بطاقات المفردات", `${nDk} كلمة في ${L.DECKS.length} موضوعًا`], ["diccionario", "📖", "القاموس", "ابحث بالعربية أو الإسبانية"], ["errores", "🎯", "أخطائي", `${(P.miss || []).length} عنصرًا للمراجعة`], ["nivel", "🧭", "حدّد مستواك", "اختبار 20 سؤالًا"], ["repaso", "🔁", "المراجعة الذكية", due ? `${due} كلمة مستحقة اليوم` : "لا مراجعة مستحقة"], ["conv", "💬", "محادثات يومية", `${L.CONV.length} موقفًا بالصوت ولعب الأدوار`], ["verbos", "🔤", "مدرّب الأفعال", `${L.VERBS.length} فعلًا × 7 أزمنة`], ["habilidades", "🎯", "المهارات الأربع", "استماع، نطق، قراءة، كتابة"], ["abc", "🅰️", "الحروف والنطق", "دليل الأصوات للعربي"], ["ninos", "🧒", "ركن الصغار", "ألعاب بالصور والصوت"], ["tutor", "🧑‍🏫", "اسأل المعلّم", "شرح وتصحيح عبر Gemini"], ["progreso", "📊", "تقدّمي", "الإحصاءات والإعدادات"]];
     return `${R.head("تعلّم الإسبانية من الصفر إلى الاحتراف", "مسار متدرج على مستويات الإطار الأوروبي المرجعي للغات (A1 → C1)، بشرح عربي مبسّط، وصوت لكل كلمة وجملة، ونطق تقريبي بالحروف العربية، وتمارين متنوعة، ومراجعة متباعدة، ومسار خاص للداعية. يناسب الكبار والصغار، ويحفظ تقدّمك في جهازك. كل الدروس مفتوحة: ابدأ من حيث تريد، أو تخطَّ ما تعرفه باختبار قصير.")}
     <div class="lx-hero card"><div class="lx-kpis"><div><b>⭐ <span id="lx-xp">${P.xp}</span></b><span>نقاط الخبرة</span></div><div><b>🔥 ${streakNow()}</b><span>أيام متتالية</span></div><div><b>📚 ${doneN}/${L.UNITS.length}</b><span>دروس منجزة</span></div><div><b>🧠 ${learned}</b><span>كلمة في ذاكرتك</span></div></div>
       <div class="lx-goal"><span>هدف اليوم: ${Math.min(dx, P.goal)} / ${P.goal} نقطة</span><div class="lx-prog"><i style="width:${Math.min(100, Math.round(dx / P.goal * 100))}%"></i></div></div>
@@ -422,7 +422,7 @@
   }
 
   /* ---------- مجموعات إضافية: العبارات، المفردات، القسم الإسلامي ---------- */
-  ["PHRASES", "DECKS", "ISLAM", "ISLAM_DLG", "KIDS"].forEach(k => { L[k] = L[k] || []; });
+  ["PHRASES", "DECKS", "ISLAM", "ISLAM_DLG", "KIDS", "DAWAH"].forEach(k => { L[k] = L[k] || []; });
   function srsAddList(items, src) { let n = 0; items.forEach(x => { if (!P.srs[x.es]) { P.srs[x.es] = { b: 0, d: today(), ar: x.ar, em: x.em || "", u: src }; n++; } }); save(); toast(n ? `أُضيف ${n} إلى المراجعة الذكية` : "موجودة في المراجعة من قبل"); }
   const lvOrder = ["A1", "A2", "B1", "B2", "C1"];
   const sentRow = e => `<div class="lx-sent"><p class="lx-es" lang="es" dir="ltr">${esc(e.es)} ${sayBtns(e.es, SR ? `<button type="button" class="lx-ic" data-rep="${esc(e.es)}" title="انطقها">🎤</button>` : "")}<button type="button" class="lx-ic" data-copy="${esc(e.es)}" title="نسخ">📋</button></p>${tr(e.es)}<p class="lx-ar">${esc(e.ar)}</p><span class="lx-srz"></span></div>`;
@@ -470,6 +470,12 @@
       ${L.ISLAM_DLG.length ? `<h2>حوارات دعوية للتدريب</h2>${listGrid(L.ISLAM_DLG, "#aprender/conv/", x => `${x.d.length} سطرًا`)}` : ""}
       <p class="notice small">💡 لا تترجم الآيات من عندك: انسخ نص الآية من «المكتبة» بترجمتها المعتمدة ومصدرها.</p>`;
   }
+  function dawahView(id) {
+    const c = L.DAWAH.find(x => x.id === id);
+    if (c) return setView({ back: "#aprender/dialogo", title: `${c.ic} ${esc(c.tar)}`, intro: `${c.note ? esc(c.note) + " · " : ""}${c.s.length} جملة جاهزة للحوار.`, sents: c.s.map(SNT) });
+    const n = L.DAWAH.reduce((a, x) => a + x.s.length, 0);
+    return `${topbar("#aprender", "🗣️ جمل الحوار مع غير المسلمين")}<p class="muted">${n} جملة إسبانية جاهزة في ${L.DAWAH.length} بابًا: فتح الحوار، والاستماع، والتعريف بالله والقرآن والنبي ﷺ، والرد على الشبهات بهدوء، والمواساة، والدعوة دون ضغط. استمع، وردّد، وتدرّب، ثم انسخ ما تحتاجه.</p>${listGrid(L.DAWAH, "#aprender/dialogo/", x => `${x.s.length} جملة`)}<p class="notice small">💡 الجمل مؤلَّفة للتدريب على منهج أهل السنة؛ والآيات تُذكر بأرقامها، فانسخ نصها المعتمد من «المكتبة».</p>`;
+  }
   /* القاموس */
   let DICT = null;
   function dict() {
@@ -490,7 +496,7 @@
   /* التحدي اليومي والأخطاء */
   function challengeView() { const done = P.reto && P.reto[today()]; return `${topbar("#aprender", "⚡ تحدي اليوم")}<p class="muted">10 أسئلة متنوعة من كل أقسام الدورة. ${done ? `أنجزت تحدي اليوم (${done}%)؛ يمكنك اللعب مجددًا للتدريب.` : "أنجزه لتحصل على 30 نقطة إضافية."}</p><div id="ch-run"></div>`; }
   function bindChallenge() {
-    const pools = [...L.UNITS.map(u => () => genUnit(u)), ...L.PHRASES.map(p => () => genSet([], p.s, [], p.lv)), ...L.DECKS.map(d => () => genSet(d.w, [], [], d.lv)), ...L.ISLAM.map(c => () => genSet(c.w, c.s, [], "B1"))];
+    const pools = [...L.UNITS.map(u => () => genUnit(u)), ...L.PHRASES.map(p => () => genSet([], p.s, [], p.lv)), ...L.DECKS.map(d => () => genSet(d.w, [], [], d.lv)), ...L.ISLAM.map(c => () => genSet(c.w, c.s, [], "B1")), ...L.DAWAH.map(c => () => genSet([], c.s, [], "B1"))];
     const list = []; while (list.length < 10) { const g = pick(pools, 1)[0]().filter(x => !["speak", "match"].includes(x.type)); if (g.length) list.push(g[0]); }
     runEx($("#ch-run"), list, (ok, total) => { const pct = Math.round(ok / total * 100); P.reto = P.reto || {}; const first = !P.reto[today()]; P.reto[today()] = Math.max(pct, P.reto[today()] || 0); if (first) addXP(30); save(); $("#ch-run").innerHTML = `<div class="card lx-result"><div class="lx-em">⚡</div><h2>${ok} من ${total}</h2>${first ? "<p>+30 نقطة لتحدي اليوم</p>" : ""}<a class="btn primary" href="#aprender">المسار</a></div>`; });
   }
@@ -520,6 +526,7 @@
     else if (sub === "frases") { const ph = L.PHRASES.find(x => x.id === id); html = phrasesView(id); bind = ph ? () => bindSet({ sents: ph.s.map(SNT), lv: ph.lv, src: ph.id }) : () => { }; }
     else if (sub === "vocab") { const d = L.DECKS.find(x => x.id === id); html = vocabView(id); bind = d ? () => bindSet({ words: d.w.map(W), lv: d.lv, src: d.id }) : () => { }; }
     else if (sub === "islam") { const c = L.ISLAM.find(x => x.id === id); html = islamView(id); bind = c ? () => bindSet({ words: c.w.map(W), sents: c.s.map(SNT), lv: "B1", src: c.id }) : () => { }; }
+    else if (sub === "dialogo") { const c = L.DAWAH.find(x => x.id === id); html = dawahView(id); bind = c ? () => bindSet({ sents: c.s.map(SNT), lv: "B1", src: c.id }) : () => { }; }
     else if (sub === "diccionario") { html = dictView(); bind = bindDict; }
     else if (sub === "reto") { html = challengeView(); bind = bindChallenge; }
     else if (sub === "errores") { html = mistakesView(); bind = bindMistakes; }

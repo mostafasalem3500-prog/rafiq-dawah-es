@@ -748,7 +748,9 @@
     try {
       const it = await ihFind(id); const f = it && it.files.find(x => /pdf/i.test(x.ext)); if (!f) throw new Error("لا يوجد ملف PDF لهذا العنوان");
       const j = await api(`/api/ihtext?u=${encodeURIComponent(f.url)}`); if (!j.text) throw new Error("تعذّر استخراج النص (قد يكون الكتاب صورًا)");
-      const paras = j.text.replace(/(\w)-\n(\w)/g, "$1$2").split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 40 && !/pdfMachine|www\.broadgun/i.test(p));
+      let raw = j.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+      if ((raw.match(/·/g) || []).length > 20 && (raw.match(/á/g) || []).length < 5) raw = raw.replace(/ ?\u0307/g, "ú").replace(/·/g, "á").replace(/Ò/g, "ñ").replace(/Ì/g, "í").replace(/Û/g, "ó").replace(/Õ/g, "Í").replace(/Ö/g, "…"); // خطوط PDF قديمة
+      const paras = raw.replace(/(\w)-\n(\w)/g, "$1$2").split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 40 && !/pdfMachine|www\.broadgun/i.test(p) && !/(\.{4,}|…{3,})\s*\d+\s*$/.test(p));
       const cite = `— «${it.title}», IslamHouse.com: ${it.url}`;
       box.innerHTML = `<div class="card"><div class="row between"><h2 lang="es" dir="ltr" style="text-align:left">📖 ${esc(it.title)}</h2><button type="button" id="rd-close">إغلاق</button></div><p class="muted small">${j.pages} صفحة · النص مستخرج آليًّا من ملف PDF الأصلي؛ قد تسقط بعض الرموز (مثل ﷺ) أو تختلط أرقام الصفحات بالنص، فراجع المقطع قبل إرساله. اختر أي فقرة وانسخها مع مصدرها.</p><input type="search" id="rd-q" placeholder="ابحث داخل الكتاب… (مثال: Jesús, oración)" dir="auto" style="width:100%"><div id="rd-paras" style="margin-top:10px"></div></div>`;
       const renderP = q => { const list = paras.map((p, i) => [p, i]).filter(([p]) => !q || p.toLowerCase().includes(q)).slice(0, 120); $("#rd-paras").innerHTML = list.map(([p, i]) => { const k = reg({ es: `«${p}»\n${cite}` }); const ks = reg({ es: p }); return `<div class="rd-para"><p class="es-text" lang="es">${esc(p)}</p><div class="actions"><button type="button" data-act="say" data-k="${ks}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المصدر</button></div></div>`; }).join("") || `<p class="muted">لا نتائج.</p>`; };
@@ -763,8 +765,8 @@
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
-    const files = ["lib", "a1", "a2", "b1", "c1", "extra", "phrases-a", "phrases-b", "islam", "vocab", "engine"], optional = new Set(["phrases-a", "phrases-b", "islam", "vocab"]);
-    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=3`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
+    const files = ["lib", "a1", "a2", "b1", "c1", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "engine"], optional = new Set(["phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b"]);
+    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=4`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;
   }
