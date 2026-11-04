@@ -1,0 +1,18 @@
+{
+  "name": "rafiq-dawah-es",
+  "version": "1.0.0",
+  "description": "رفيق الداعية — Compañero del Da'i: مواد دعوية بالإسبانية من مصادر موثوقة (IslamHouse · QuranEnc · HadeethEnc)",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "check": "node scripts/check-data.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "4.21.2"
+  }
+}

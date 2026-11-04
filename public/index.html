@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>رفيق الداعية</title>
+<meta name="description" content="رفيق الداعية: رسائل وقوالب محادثات ومنهج دعوي بالإسبانية مع المعنى العربي والنطق، من مصادر موثوقة: IslamHouse وQuranEnc وHadeethEnc، على منهج أهل السنة والجماعة.">
+<meta name="theme-color" content="#0b4d3c">
+<meta property="og:title" content="رفيق الداعية — Compañero del da'i">
+<meta property="og:description" content="مواد دعوية بالإسبانية مع المعنى العربي والنطق، من مصادر موثوقة.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b4d3c'/%3E%3Cpath d='M32 10l6 10 12 2-8 9 2 12-12-6-12 6 2-12-8-9 12-2z' fill='%23d9b45a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="#inicio">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 64 64" width="40" height="40"><rect width="64" height="64" rx="14" fill="currentColor"/><path d="M32 10l6 10 12 2-8 9 2 12-12-6-12 6 2-12-8-9 12-2z" fill="#d9b45a"/></svg></span>
+      <span><b>رفيق الداعية</b><small lang="es" dir="ltr">Compañero del da'i</small></span>
+    </a>
+    <form class="search" id="search-form" role="search">
+      <label for="q" class="sr">بحث في المحتوى</label>
+      <input id="q" type="search" placeholder="ابحث بالعربية أو الإسبانية: عيسى، Jesús، الحزن…" autocomplete="off">
+      <button type="submit">بحث</button>
+    </form>
+  </div>
+  <nav class="wrap nav" id="nav" aria-label="الأقسام">
+    <a href="#inicio">الرئيسية</a>
+    <a href="#componer">المُركِّب</a>
+    <a href="#analizar">حلّل رسالة المحاور</a>
+    <a href="#mensajes">الرسائل القصيرة</a>
+    <a href="#conversaciones">قوالب المحادثات</a>
+    <a href="#articulos">مقالات قصيرة</a>
+    <a href="#curso">المنهج</a>
+    <a href="#biblioteca">المكتبة</a>
+    <a href="#pronunciar">النطق</a>
+    <a href="#guia">دليل الداعية</a>
+    <a href="#avisos">تحذيرات</a>
+  </nav>
+</header>
+
+<main id="main" class="wrap" tabindex="-1">
+  <div id="view" aria-live="polite"></div>
+</main>
+
+<footer class="foot wrap">
+  <p>المصادر: <a href="https://quranenc.com/es/home" rel="noopener">QuranEnc.com</a> · <a href="https://hadeethenc.com/es/home" rel="noopener">HadeethEnc.com</a> · <a href="https://islamhouse.com/es/" rel="noopener">IslamHouse.com</a>. الآيات والأحاديث تُعرض كما هي من مصادرها مع رقم الإصدار. الرسائل والمقالات القصيرة نصوص مستقلة أُعدّت بالاستعانة بمواد هذه المصادر، وليست إصدارًا منها.</p>
+  <p class="muted">على منهج أهل السنة والجماعة. تحتاج النصوص المؤلَّفة اعتماد مراجع علمي قبل اعتمادها رسميًا.</p>
+</footer>
+
+<div class="player" id="player" hidden>
+  <div class="wrap player-in">
+    <span class="now" id="now-text"></span>
+    <div class="ctl">
+      <button type="button" id="p-pause" aria-label="إيقاف مؤقت">⏸</button>
+      <button type="button" id="p-stop" aria-label="إيقاف">⏹</button>
+      <label class="rate">السرعة <input type="range" id="p-rate" min="0.5" max="1.5" step="0.05" value="0.9"><output id="p-rate-out">0.9×</output></label>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/data-core.js"></script>
+<script src="/data-long.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
