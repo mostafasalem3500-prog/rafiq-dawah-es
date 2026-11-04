@@ -202,12 +202,14 @@
 
   V.inicio = () => {
     const day = Math.floor(Date.now() / 86400000); const m = RQ.MSG[day % RQ.MSG.length];
-    return `<section class="hero"><h1>ماذا أمامك الآن؟</h1><p>اختر الموقف الذي تمر به مع محاورك، فيعطيك الموقع خطة ورسالة بالإسبانية مع معناها ونطقها، وآيات وأحاديث من مصادرها كما هي.</p>
+    const star = `<svg class="hero-art" viewBox="0 0 200 200" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.2"><g class="ha-r1"><rect x="40" y="40" width="120" height="120"/><rect x="40" y="40" width="120" height="120" transform="rotate(45 100 100)"/></g><g class="ha-r2"><circle cx="100" cy="100" r="58"/><rect x="62" y="62" width="76" height="76"/><rect x="62" y="62" width="76" height="76" transform="rotate(45 100 100)"/></g><circle cx="100" cy="100" r="22"/><circle cx="100" cy="100" r="92" stroke-dasharray="2 6"/></g></svg>`;
+    return `<section class="hero">${star}<h1>ماذا أمامك الآن؟</h1><p>اختر الموقف الذي تمر به مع محاورك، فيعطيك الموقع خطة ورسالة بالإسبانية مع معناها ونطقها، وآيات وأحاديث من مصادرها كما هي.</p>
       <div class="situ-grid">${RQ.SITU.map(s => `<a class="btn" href="#componer/${s.id}">${esc(s.ar)}</a>`).join("")}</div>
       <div class="row"><a class="btn primary" href="#componer">افتح المُركِّب</a><a class="btn" href="#analizar">الصق رسالة من المحاور</a><a class="btn" href="#guia">ابدأ من دليل الداعية</a></div></section>
-      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🗣️</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">آلاف الكلمات والجمل من A1 إلى C1، وقسم للإسبانية الشرعية والدعوية، بأصوات طبيعية ومحادثات وتمارين واختبارات ومراجعة ذكية، لكل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
-      <div class="lx-tiles">${[["#confianza", "🤝", "بناء الثقة", "8 مبادئ و5 مراحل وخطة شهر"], ["#preguntas", "❓", "أسئلة الباحثين", `${RQ.FAQ.length} سؤالًا بإجابات جاهزة`], ["#libros", "📚", "دليل كتب IslamHouse", `${RQ.BOOKS.length} كتابًا حسب المحاور`], ["#seguimiento", "🗓️", "متابعة المحاورين", "لا تنسَ أحدًا ولا تكرر رسالة"]].map(([h, ic, t, d]) => `<a class="lx-tile card lift" href="${h}"><span class="lx-tic">${ic}</span><b>${t}</b><span class="muted small">${d}</span></a>`).join("")}</div>
-      <div class="stats">${[[RQ.MSG.length, "رسالة قصيرة"], [RQ.DLG.length, "قالب محادثة"], [RQ.ART.length, "مقالة قصيرة"], [RQ.COURSE.length, "لقاءً في المنهج"], [RQ.WARN.length, "تحذيرًا للداعية"]].map(s => `<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("")}</div>
+      <a class="card lift learn-promo" href="#aprender"><span class="lp-ic">🗣️</span><span><b>تعلّم الإسبانية من الصفر إلى الاحتراف</b><br><span class="muted small">آلاف الكلمات والجمل من A1 إلى C2، وبنك أسئلة وألعاب وتحضير لاختبارات DELE وSIELE، وقسم للإسبانية الشرعية والدعوية، بأصوات طبيعية ومحادثات وتمارين واختبارات ومراجعة ذكية، لكل الأعمار.</span></span><span class="btn primary">ابدأ ←</span></a>
+      <section class="card journey" aria-label="رحلة المحاور"><div class="row between"><h2>رحلة المحاور: خمس مراحل</h2><a class="btn" href="#confianza">التفاصيل ←</a></div><ol class="jr">${RQ.TRUST.stages.map((st, i) => `<li style="--i:${i}"><a href="#componer"><span class="jr-n">${i + 1}</span><b>${esc(st.t)}</b><span class="muted small">${esc(st.goal)}</span></a></li>`).join("")}</ol></section>
+      <div class="lx-tiles">${[["#quran", "📖", "القرآن وتفسير العشر الأخير", "تلاوة وترجمة وتفسير بالإسبانية"], ["#confianza", "🤝", "بناء الثقة", "8 مبادئ و5 مراحل وخطة شهر"], ["#preguntas", "❓", "أسئلة الباحثين", `${RQ.FAQ.length} سؤالًا بإجابات جاهزة`], ["#libros", "📚", "دليل كتب IslamHouse", `${RQ.BOOKS.length} كتابًا حسب المحاور`], ["#seguimiento", "🗓️", "متابعة المحاورين", "لا تنسَ أحدًا ولا تكرر رسالة"]].map(([h, ic, t, d]) => `<a class="lx-tile card lift" href="${h}"><span class="lx-tic">${ic}</span><b>${t}</b><span class="muted small">${d}</span></a>`).join("")}</div>
+      <div class="stats" id="home-stats">${[[RQ.MSG.length, "رسالة قصيرة"], [RQ.DLG.length, "قالب محادثة"], [RQ.ART.length, "مقالة قصيرة"], [RQ.FAQ.length, "سؤالًا بإجابة جاهزة"], [RQ.QUOTES.length, "مقتطفًا من IslamHouse"], [RQ.WARN.length, "تحذيرًا للداعية"]].map((s, i) => `<div class="stat" style="--i:${i}"><b data-count="${s[0]}">${s[0]}</b><span>${s[1]}</span></div>`).join("")}</div>
       <div class="two"><div><h2 style="margin-bottom:10px">رسالة اليوم</h2>${msgCard(m)}</div>
       <div class="card"><h2>كيف يعمل الموقع؟</h2><ol class="steps"><li><b>المُركِّب</b> يفهم نوع محاورك ومرحلته وموقفه، ويجمع لك خطة ورسالة ومحادثة.</li><li><b>حلّل رسالة المحاور</b>: الصق ما كتبه بالإسبانية، فيكشف الموضوع ويحذّرك من المزالق.</li><li><b>النطق</b> بأكثر من لهجة إسبانية وبسرعة تتحكم فيها، للداعية مهما كانت خبرته.</li><li><b>المكتبة</b> تجلب الآيات من QuranEnc والأحاديث من HadeethEnc والكتب من IslamHouse.</li><li><b>التحذيرات</b> تحميك من المواضيع التي تُخسرك الباحث عن الحقيقة.</li></ol></div></div>`;
   };
@@ -455,6 +457,8 @@
     if (!f) return `${head("بحث", "اكتب كلمة في مربع البحث بالأعلى.")}`;
     const hit = t => fold(t).includes(f);
     const R = [];
+    (RQ.SURAS || []).forEach((x, i) => { if (hit("سورة " + x[0] + " " + x[1] + " sura " + (i + 1))) R.push(["سورة", `${i + 1}. سورة ${x[0]}`, `#quran/${i + 1}`, `${x[1]} · ${x[2]} آية`]); });
+    if (hit("تفسير العشر الأخير exégesis último décimo tafsir")) R.push(["كتاب", "تفسير العشر الأخير بالإسبانية", "#quran", RQ.TAFSIR10.title]);
     RQ.MSG.forEach(m => { if (hit(m.t + " " + m.es + " " + m.ar)) R.push(["رسالة", m.t, `#mensajes/${m.id}`, m.es]); });
     RQ.ART.forEach(a => { if (hit(a.t + " " + a.tar + " " + a.es.join(" ") + " " + a.ar)) R.push(["مقالة", a.tar + " — " + a.t, `#articulos/${a.id}`, a.es[0]]); });
     RQ.DLG.forEach(d => { if (hit(d.t + " " + d.goal + " " + d.steps.map(s => s.es + " " + s.ar).join(" "))) R.push(["قالب محادثة", d.t, `#conversaciones/${d.id}`, d.goal]); });
@@ -747,36 +751,126 @@
     box.innerHTML = `<div class="card"><p class="muted">جارٍ تحميل نص الكتاب من IslamHouse…</p></div>`; box.scrollIntoView({ behavior: "smooth" });
     try {
       const it = await ihFind(id); const f = it && it.files.find(x => /pdf/i.test(x.ext)); if (!f) throw new Error("لا يوجد ملف PDF لهذا العنوان");
-      const j = await api(`/api/ihtext?u=${encodeURIComponent(f.url)}`); if (!j.text) throw new Error("تعذّر استخراج النص (قد يكون الكتاب صورًا)");
+      await openReaderFile({ title: it.title, url: it.url, file: f.url }, box);
+    } catch (e) { box.innerHTML = `<p class="notice amber">${esc(e.message)}</p>`; }
+  }
+  async function openReaderFile(it, box) {
+    box.innerHTML = `<div class="card"><p class="muted">جارٍ تحميل نص الكتاب من IslamHouse… قد يستغرق الكتاب الكبير دقيقة في أول مرة.</p><div class="q-skel"><i></i><i></i><i></i></div></div>`; box.scrollIntoView({ behavior: "smooth", block: "start" });
+    try {
+      let j; for (let t = 0; t < 4; t++) { try { j = await api(`/api/ihtext?u=${encodeURIComponent(it.file)}`); break; } catch (e) { if (t === 3 || !/busy|50[23]|upstream|abort/i.test(e.message)) throw e; await new Promise(r => setTimeout(r, 20000)); } }
+      if (!j.text) throw new Error("تعذّر استخراج النص (قد يكون الكتاب صورًا)");
       let raw = j.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
       if ((raw.match(/·/g) || []).length > 20 && (raw.match(/á/g) || []).length < 5) raw = raw.replace(/ ?\u0307/g, "ú").replace(/·/g, "á").replace(/Ò/g, "ñ").replace(/Ì/g, "í").replace(/Û/g, "ó").replace(/Õ/g, "Í").replace(/Ö/g, "…"); // خطوط PDF قديمة
       const paras = raw.replace(/(\w)-\n(\w)/g, "$1$2").split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim()).filter(p => p.length > 40 && !/pdfMachine|www\.broadgun/i.test(p) && !/(\.{4,}|…{3,})\s*\d+\s*$/.test(p));
       const cite = `— «${it.title}», IslamHouse.com: ${it.url}`;
       box.innerHTML = `<div class="card"><div class="row between"><h2 lang="es" dir="ltr" style="text-align:left">📖 ${esc(it.title)}</h2><button type="button" id="rd-close">إغلاق</button></div><p class="muted small">${j.pages} صفحة · النص مستخرج آليًّا من ملف PDF الأصلي؛ قد تسقط بعض الرموز (مثل ﷺ) أو تختلط أرقام الصفحات بالنص، فراجع المقطع قبل إرساله. اختر أي فقرة وانسخها مع مصدرها.</p><input type="search" id="rd-q" placeholder="ابحث داخل الكتاب… (مثال: Jesús, oración)" dir="auto" style="width:100%"><div id="rd-paras" style="margin-top:10px"></div></div>`;
-      const renderP = q => { const list = paras.map((p, i) => [p, i]).filter(([p]) => !q || p.toLowerCase().includes(q)).slice(0, 120); $("#rd-paras").innerHTML = list.map(([p, i]) => { const k = reg({ es: `«${p}»\n${cite}` }); const ks = reg({ es: p }); return `<div class="rd-para"><p class="es-text" lang="es">${esc(p)}</p><div class="actions"><button type="button" data-act="say" data-k="${ks}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المصدر</button></div></div>`; }).join("") || `<p class="muted">لا نتائج.</p>`; };
-      $("#rd-q").oninput = e => renderP(e.target.value.trim().toLowerCase()); renderP("");
+      let lim = 120; const renderP = q => { const all = paras.map((p, i) => [p, i]).filter(([p]) => !q || p.toLowerCase().includes(q)), list = all.slice(0, lim); $("#rd-paras").innerHTML = list.map(([p, i]) => { const k = reg({ es: `«${p}»\n${cite}` }); const ks = reg({ es: p }); return `<div class="rd-para"><p class="es-text" lang="es">${esc(p)}</p><div class="actions"><button type="button" data-act="say" data-k="${ks}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المصدر</button></div></div>`; }).join("") + (all.length > lim ? `<button type="button" id="rd-more">عرض المزيد (${all.length - lim} فقرة)</button>` : "") || `<p class="muted">لا نتائج.</p>`; const mb = $("#rd-more"); if (mb) mb.onclick = () => { lim += 150; renderP(q); }; };
+      $("#rd-q").oninput = e => { lim = 120; renderP(e.target.value.trim().toLowerCase()); }; renderP("");
       $("#rd-close").onclick = () => { box.innerHTML = ""; };
     } catch (e) { box.innerHTML = `<p class="notice amber">${esc(e.message)}</p>`; }
   }
 
+
+  /* ---------- القرآن الكريم + تفسير العشر الأخير ---------- */
+  const arNum = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+  const QA = { audio: null, list: [], i: -1, cont: false };
+  function qStop() { if (QA.audio) { QA.audio.pause(); QA.audio = null; } QA.cont = false; $$(".q-aya.q-now").forEach(x => x.classList.remove("q-now")); const b = $("#q-playall"); if (b) b.textContent = "▶ استمع للسورة"; }
+  function qPlay(sura, aya, cont) {
+    qStop(); TTS.stop(); QA.cont = !!cont;
+    const rec = S.qrec || RQ.RECITERS[0][0]; const a = new Audio(`https://everyayah.com/data/${rec}/${String(sura).padStart(3, "0")}${String(aya).padStart(3, "0")}.mp3`); QA.audio = a;
+    const el = $("#a-" + aya); if (el) { el.classList.add("q-now"); el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); }
+    if (cont) { const b = $("#q-playall"); if (b) b.textContent = "■ إيقاف التلاوة"; }
+    a.onended = () => { if (QA.cont && aya < RQ.SURAS[sura - 1][2] && $("#a-" + (aya + 1))) qPlay(sura, aya + 1, true); else qStop(); };
+    a.onerror = () => { toast("تعذّر تشغيل التلاوة؛ تحقّق من الاتصال"); qStop(); };
+    a.play().catch(() => { });
+  }
+  V.quran = (arg) => {
+    const T = RQ.TAFSIR10; const [s0] = String(arg || "").split("/"); const sura = Math.min(114, Math.max(1, parseInt(s0, 10) || 1));
+    const opt = (i) => `<option value="${i + 1}"${i + 1 === sura ? " selected" : ""}>${i + 1}. ${RQ.SURAS[i][0]} — ${RQ.SURAS[i][1]}</option>`;
+    return `${head("القرآن الكريم وتفسير العشر الأخير بالإسبانية", "اقرأ السورة بالرسم العثماني مع ترجمة معانيها أو تفسيرها المختصر بالإسبانية، واستمع لتلاوة كبار القراء آيةً آية، وانسخ أي آية مع مرجعها لترسلها لمحاورك. الترجمة تقريبٌ للمعاني، والقرآن هو النص العربي.")}
+      <section class="q-info card" aria-label="مصادر القسم">
+        <div class="q-kpis">${[["114", "سورة"], ["6236", "آية"], [RQ.QTR.length, "ترجمات وتفاسير إسبانية"], [RQ.RECITERS.length, "قرّاء"]].map(([n, t], i) => `<div class="q-kpi" style="--d:${i}"><b data-count="${n}">${n}</b><span>${t}</span></div>`).join("")}</div>
+        <ol class="q-flow">${RQ.QSRC.map(([t, d, u], i) => `<li style="--d:${i}"><a href="${u}" target="_blank" rel="noopener"><b>${t}</b></a><span class="muted small">${d}</span></li>`).join("")}</ol>
+      </section>
+      <section class="card q-book" id="tafsir10">
+        <div class="q-cover" aria-hidden="true"><span class="q-cover-t">Exégesis del<br>último décimo<br>del Corán</span><span class="q-cover-s">IslamHouse</span></div>
+        <div class="q-book-body"><span class="tag gold">كتاب مختار للداعية</span><h2>📗 ${T.ar}</h2><p lang="es" dir="ltr" class="es-text" style="text-align:start">${esc(T.title)}</p>
+          <p class="muted small">${esc(T.by)}</p><p class="small">${esc(T.basis)}</p>
+          <div class="actions"><button type="button" class="primary" id="t10-read">📖 اقرأ الكتاب هنا وابحث فيه</button><button type="button" id="t10-p2">📑 اقرأ قسم الأحكام</button><button type="button" id="t10-tafsir">🔎 تفسير آيات العشر الأخير آيةً آية</button>
+          <a class="btn" href="${T.page}" target="_blank" rel="noopener">صفحة الكتاب في IslamHouse</a></div>
+          <details class="small"><summary>تحميل ملفات الكتاب (PDF)</summary><ul>${T.files.map(([n, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${n}</a></li>`).join("")}</ul></details>
+          <div class="actions"><button type="button" data-act="copy" data-k="${reg({ es: `📗 ${T.title}\nPDF gratuito en español: ${T.page}\nFuente: IslamHouse.com` })}">نسخ رسالة بالإسبانية مع الرابط</button></div>
+        </div></section>
+      <div id="t10-box"></div>
+      <section class="card q-ctl">
+        <div class="form">
+          <div class="field"><label for="q-s">السورة</label><select id="q-s"><optgroup label="العشر الأخير (من المجادلة إلى الناس)">${RQ.SURAS.map((x, i) => i >= 57 ? opt(i) : "").join("")}</optgroup><optgroup label="من الفاتحة إلى الحديد">${RQ.SURAS.map((x, i) => i < 57 ? opt(i) : "").join("")}</optgroup></select></div>
+          <div class="field"><label for="q-t">الترجمة أو التفسير</label><select id="q-t">${RQ.QTR.map(([k, a, e]) => `<option value="${k}"${k === (S.qtr || "spanish_garcia") ? " selected" : ""}>${a} — ${e}</option>`).join("")}</select></div>
+          <div class="field"><label for="q-r">القارئ</label><select id="q-r">${RQ.RECITERS.map(([k, n]) => `<option value="${k}"${k === (S.qrec || RQ.RECITERS[0][0]) ? " selected" : ""}>${n}</option>`).join("")}</select></div>
+          <div class="field"><label for="q-f">بحث داخل السورة</label><input type="search" id="q-f" placeholder="كلمة إسبانية أو عربية…" dir="auto"></div>
+        </div>
+        <div class="row" style="margin-top:10px"><button type="button" class="primary" id="q-playall">▶ استمع للسورة</button><label class="small"><input type="checkbox" id="q-sh-ar" checked> النص العربي</label><label class="small"><input type="checkbox" id="q-sh-es" checked> الإسبانية</label><button type="button" id="q-prev">→ السورة السابقة</button><button type="button" id="q-next">السورة التالية ←</button></div>
+        <details class="q-ten"><summary>سور العشر الأخير — اختصار سريع</summary><div class="q-chips">${RQ.SURAS.map((x, i) => i >= 57 ? `<a class="chip" href="#quran/${i + 1}">${x[0]}</a>` : "").join("")}</div></details>
+      </section>
+      <div id="q-out" aria-live="polite"></div>
+      <p class="muted small">النص العربي وترجمات المعاني من QuranEnc.com (موسوعة القرآن الكريم)، والتلاوات من EveryAyah.com، والكتاب من IslamHouse.com. للمصحف المطبوع والترجمات المعتمدة: <a href="https://qurancomplex.gov.sa/" target="_blank" rel="noopener">مجمع الملك فهد لطباعة المصحف الشريف</a>.</p>`;
+  };
+  async function bindQuran(arg) {
+    const T = RQ.TAFSIR10; const [s0, a0] = String(arg || "").split("/"); let sura = Math.min(114, Math.max(1, parseInt(s0, 10) || 1));
+    $("#t10-read").onclick = () => openReaderFile({ title: T.title, url: T.page, file: T.files[0][1] }, $("#t10-box"));
+    $("#t10-p2").onclick = () => openReaderFile({ title: T.title + " (II)", url: T.page, file: T.files[1][1] }, $("#t10-box"));
+    $("#t10-tafsir").onclick = () => { S.qtr = "spanish_mokhtasar"; saveS(); if (sura < 58) location.hash = "quran/58"; else { $("#q-t").value = S.qtr; load(); $("#q-out").scrollIntoView({ behavior: "smooth" }); } };
+    $("#q-s").onchange = e => { location.hash = "quran/" + e.target.value; };
+    $("#q-prev").onclick = () => { if (sura > 1) location.hash = "quran/" + (sura - 1); };
+    $("#q-next").onclick = () => { if (sura < 114) location.hash = "quran/" + (sura + 1); };
+    $("#q-t").onchange = e => { S.qtr = e.target.value; saveS(); load(); };
+    $("#q-r").onchange = e => { S.qrec = e.target.value; saveS(); qStop(); };
+    $("#q-sh-ar").onchange = e => $("#q-out").classList.toggle("q-no-ar", !e.target.checked);
+    $("#q-sh-es").onchange = e => $("#q-out").classList.toggle("q-no-es", !e.target.checked);
+    $("#q-f").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$(".q-aya").forEach(x => x.hidden = q && !x.textContent.toLowerCase().includes(q)); };
+    $("#q-playall").onclick = () => { if (QA.cont) return qStop(); const first = $$(".q-aya").find(x => !x.hidden); if (first) qPlay(sura, +first.dataset.aya, true); };
+    countUp($(".q-kpis"));
+    async function load() {
+      const key = $("#q-t").value, meta = RQ.SURAS[sura - 1], tr = RQ.QTR.find(x => x[0] === key);
+      const out = $("#q-out"); out.innerHTML = `<div class="card"><div class="q-skel"><i></i><i></i><i></i><i></i></div></div>`;
+      try {
+        const j = await api(`/api/sura/${sura}?t=${key}`);
+        let bism = ""; if (sura !== 1 && sura !== 9) { try { const b = await api("/api/quran/1/1"); bism = `<p class="q-bism" lang="ar" translate="no">${esc(b.ayahs[0].arabic)}</p>`; } catch (e) { } }
+        out.innerHTML = `<section class="card q-sura"><header class="q-sh"><span class="q-sn">${arNum(sura)}</span><div><h2>سورة ${meta[0]}</h2><p class="muted small"><bdi lang="es">${meta[1]}</bdi> · ${meta[3] === "m" ? "مكية" : "مدنية"} · ${arNum(meta[2])} آية${sura >= 58 ? " · من العشر الأخير" : ""}</p></div><span class="tag">${tr[1]}</span></header>${bism}
+          ${j.ayahs.map(a => { const ref = `${sura}:${a.aya}`; const cite = `${a.arabic}\n«${a.text}»\n(Corán ${ref}) — ${tr[2]}, QuranEnc.com`; return `<article class="q-aya" id="a-${a.aya}" data-aya="${a.aya}"><p class="q-ar" lang="ar" translate="no">${esc(a.arabic)} <span class="q-num">﴿${arNum(a.aya)}﴾</span></p><p class="q-es" lang="es" dir="ltr" translate="no"><b class="q-ref">${ref}</b> ${esc(a.text)}</p>${a.footnotes ? `<details class="q-fn small"><summary>${key === "spanish_mokhtasar" ? "فوائد وتعليقات" : "حواشي المترجم"}</summary><p lang="es" dir="ltr">${esc(a.footnotes)}</p></details>` : ""}
+            <div class="actions"><button type="button" data-qplay="${a.aya}">▶ التلاوة</button><button type="button" data-act="say" data-k="${reg({ es: a.text })}">🔊 الإسبانية</button><button type="button" data-act="copy" data-k="${reg({ es: cite })}">نسخ مع المرجع</button><a class="btn" href="${wa(cite)}" target="_blank" rel="noopener">واتساب</a></div></article>`; }).join("")}
+          <p class="muted small">المصدر: <a href="${esc(j.url)}" target="_blank" rel="noopener">QuranEnc.com — ${esc(j.translation.title)}</a>${j.translation.version ? ` (الإصدار ${esc(j.translation.version)})` : ""}. لا تخلو ترجمة لمعاني القرآن من القصور؛ والترجمة تعبّر عن فهم مترجميها.</p></section>`;
+        $$("[data-qplay]", out).forEach(b => b.onclick = () => qPlay(sura, +b.dataset.qplay, false));
+        $("#q-f").dispatchEvent(new Event("input"));
+        if (a0 && $("#a-" + a0)) { $("#a-" + a0).classList.add("q-now"); $("#a-" + a0).scrollIntoView({ block: "center" }); }
+      } catch (e) { out.innerHTML = `<p class="notice amber">تعذّر جلب السورة من QuranEnc الآن (${esc(e.message)}). أعد المحاولة بعد قليل.</p>`; }
+    }
+    load();
+  }
+  /* عدّاد متحرك للأرقام (يُعطَّل مع تقليل الحركة) */
+  function countUp(root) {
+    if (!root || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    $$("[data-count]", root).forEach(el => { const end = +String(el.dataset.count).replace(/\D/g, ""); if (!end) return; const t0 = performance.now(), dur = 900 + Math.min(900, end / 5); const f = t => { const k = Math.min(1, (t - t0) / dur); el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))).toLocaleString("en-US"); if (k < 1) requestAnimationFrame(f); }; requestAnimationFrame(f); });
+  }
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
+  const LEARN_V = 5, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "engine", "play"];
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
-    const files = ["lib", "a1", "a2", "b1", "c1", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "engine"], optional = new Set(["phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b"]);
-    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=4`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
+    const files = LEARN_FILES, optional = new Set(["c2", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play"]);
+    learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=${LEARN_V}`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;
   }
   window.RAFIQ = { TTS, NV, toast, copy, esc, head, S, saveS };
 
   /* ---------- router ---------- */
-  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "confianza", "preguntas", "libros", "seguimiento", "citas", "buscar"];
+  const ORDER = ["inicio", "componer", "analizar", "traducir", "mensajes", "tarjetas", "conversaciones", "articulos", "curso", "ideas", "biblioteca", "pronunciar", "guia", "avisos", "revision", "aprender", "confianza", "preguntas", "libros", "seguimiento", "citas", "quran", "buscar"];
   function route() {
     const h = decodeURIComponent(location.hash.slice(1)); const [name0, ...rest] = h.split("/"); const name = ORDER.includes(name0) ? name0 : "inicio"; const arg = rest.join("/");
-    TTS.stop(); REG = new Map(); if ("speechSynthesis" in window) speechSynthesis.cancel();
+    TTS.stop(); qStop(); REG = new Map(); if ("speechSynthesis" in window) speechSynthesis.cancel();
     view.innerHTML = V[name](arg); view.classList.remove("fade"); void view.offsetWidth; view.classList.add("fade");
     $$("#nav a").forEach(a => { if (a.getAttribute("href") === "#" + name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("#nav .nav-grp").forEach(g => { g.classList.toggle("current", !!g.querySelector('a[aria-current="page"]')); g.open = false; });
@@ -797,6 +891,8 @@
     if (name === "libros") bindLibros();
     if (name === "citas") bindCitas(arg);
     if (name === "seguimiento") bindSeguimiento();
+    if (name === "quran") bindQuran(arg);
+    if (name === "inicio") countUp($("#home-stats"));
     if (name === "preguntas") { $("#fq-q").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$("[data-fq]").forEach(c => c.hidden = q && !c.dataset.fq.includes(q)); }; if (arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "start" }); }
     if (name === "aprender") loadLearn().then(() => { if (location.hash.slice(1).split("/")[0] === "aprender") { window.LEARN.mount(view, arg); window.scrollTo({ top: 0 }); } }).catch(() => { view.innerHTML = `<p class="notice amber">تعذّر تحميل قسم التعلّم. تحقّق من الاتصال وأعد المحاولة.</p>`; });
     gemInit();

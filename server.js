@@ -10,7 +10,7 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const IH_KEY = process.env.ISLAMHOUSE_API_KEY || "paV29H2gm56kvLPy"; // public key published in the IslamHouse API docs
-const QURAN_TRANSLATIONS = new Set(["spanish_garcia", "spanish_montada_latin", "spanish_montada_eu"]);
+const QURAN_TRANSLATIONS = new Set(["spanish_garcia", "spanish_montada_latin", "spanish_montada_eu", "spanish_mokhtasar"]);
 const AYAHS = [7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
 
 const app = express();
@@ -24,7 +24,7 @@ app.use((req, res, next) => {
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob: https://everyayah.com; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
   );
   next();
 });
@@ -88,6 +88,19 @@ app.get("/api/quran/:sura/:aya", async (req, res) => {
       ayahs.push({ aya: n, arabic: r.arabic_text || "", text: String(r.translation || "").replace(/^\s*\d+\s*[.\-–:]\s*/, ""), footnotes: r.footnotes || "" });
     }
     send(res, { sura: s, from: a, to: b, ayahs, translation: meta, source: "QuranEnc.com", url: `https://quranenc.com/es/browse/${key}/${s}/${a}` }, 86400);
+  } catch (e) { fail(res, e); }
+});
+
+/* whole surah: Arabic text + one Spanish translation (or Al-Mukhtasar tafsir) from QuranEnc */
+app.get("/api/sura/:sura", async (req, res) => {
+  const s = parseInt(req.params.sura, 10);
+  const key = QURAN_TRANSLATIONS.has(req.query.t) ? req.query.t : "spanish_garcia";
+  if (!(s >= 1 && s <= 114)) return res.status(400).json({ error: "invalid_reference" });
+  try {
+    const [meta, j] = await Promise.all([translationMeta(key), getJSON(`https://quranenc.com/api/v1/translation/sura/${key}/${s}`, 30 * DAY)]);
+    const ayahs = (j.result || []).map(r => ({ aya: +r.aya, arabic: r.arabic_text || "", text: String(r.translation || "").replace(/^\s*\d+\s*[.\-–:]\s*/, ""), footnotes: r.footnotes || "" }));
+    if (ayahs.length !== AYAHS[s - 1]) throw new Error("incomplete surah " + ayahs.length + "/" + AYAHS[s - 1]);
+    send(res, { sura: s, ayahs, translation: meta, source: "QuranEnc.com", url: `https://quranenc.com/es/browse/${key}/${s}` }, 86400);
   } catch (e) { fail(res, e); }
 });
 
@@ -223,7 +236,7 @@ app.use("/api/tutor", express.json({ limit: "10kb" }));
 app.post("/api/tutor", async (req, res) => {
   const { q, mode, level } = req.body || {}; const t = String(q || "").trim();
   if (!t || t.length > 1500) return res.status(400).json({ error: "bad_text", message: "النص فارغ أو أطول من 1500 حرف" });
-  const lv = ["A1", "A2", "B1", "B2", "C1"].includes(level) ? level : "A1"; const m = mode === "correct" ? "correct" : "explain";
+  const lv = ["A1", "A2", "B1", "B2", "C1", "C2"].includes(level) ? level : "A1"; const m = mode === "correct" ? "correct" : "explain";
   const ck = `tu:${m}:${lv}:${t}`; const cached = cacheGet(ck, 7 * DAY); if (cached) return res.json(cached);
   if (!geminiGate(req, res)) return;
   try { const out = await gemini(TUTOR_SYSTEM, `Modo: ${m}. Nivel del alumno: ${lv}.\n\n${t}`, 0.3); const result = { text: out, model: GEMINI_MODEL }; cacheSet(ck, result); res.setHeader("Cache-Control", "no-store"); res.json(result); }
@@ -250,19 +263,27 @@ app.post("/api/translate", async (req, res) => {
 
 /* IslamHouse document text (PDF → text) for reading and quoting; restricted to IslamHouse Spanish files */
 const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+const fs = require("fs");
+const PDF_DIR = path.join(process.env.DATA_DIR || require("os").tmpdir(), "ihtext");
+const pdfBusy = new Set();
 app.get("/api/ihtext", async (req, res) => {
   const u = String(req.query.u || "");
   if (!/^https:\/\/d1\.islamhouse\.com\/data\/es\/[\w\/.\-%]+\.pdf$/i.test(u)) return res.status(400).json({ error: "bad_url" });
   const key = "pdf:" + u; const hit = cacheGet(key, 30 * DAY); if (hit) return send(res, hit, 86400);
+  const file = path.join(PDF_DIR, require("crypto").createHash("sha1").update(u).digest("hex") + ".json");
+  try { const disk = JSON.parse(fs.readFileSync(file, "utf8")); cacheSet(key, disk); return send(res, disk, 86400); } catch (e) { }
+  if (pdfBusy.has(u)) return res.status(503).json({ error: "busy", message: "الكتاب قيد التحضير؛ أعد المحاولة بعد دقيقة" });
+  pdfBusy.add(u);
   try {
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 90000);
     const r = await fetch(u, { signal: ctl.signal, headers: { "User-Agent": "rafiq-dawah-es/1.0" } }); clearTimeout(to);
     if (!r.ok) throw new Error("upstream " + r.status);
-    const buf = Buffer.from(await r.arrayBuffer()); if (buf.length > 15 * 1024 * 1024) throw new Error("too large");
+    const buf = Buffer.from(await r.arrayBuffer()); if (buf.length > 40 * 1024 * 1024) throw new Error("too large");
     const d = await pdfParse(buf);
     const out = { url: u, pages: d.numpages, text: d.text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), source: "IslamHouse.com" };
-    cacheSet(key, out); send(res, out, 86400);
-  } catch (e) { fail(res, e); }
+    cacheSet(key, out); try { fs.mkdirSync(PDF_DIR, { recursive: true }); fs.writeFileSync(file, JSON.stringify(out)); } catch (e) { }
+    send(res, out, 86400);
+  } catch (e) { fail(res, e); } finally { pdfBusy.delete(u); }
 });
 
 require("./tts").mount(app);

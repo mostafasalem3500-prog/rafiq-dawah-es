@@ -1,9 +1,9 @@
 // Validates the Spanish course data and the conjugation engine.
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const ctx = { console }; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
-for (const f of ["lib", "a1", "a2", "b1", "c1", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b"]) if (fs.existsSync(path.join(__dirname, "..", "public", "learn", f + ".js"))) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "public", "learn", f + ".js"), "utf8"), ctx);
+for (const f of ["lib", "a1", "a2", "b1", "c1", "c2", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams"]) if (fs.existsSync(path.join(__dirname, "..", "public", "learn", f + ".js"))) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "public", "learn", f + ".js"), "utf8"), ctx);
 const L = ctx.window.LEARN; const errs = [];
-const ids = new Set(); const LV = ["A1", "A2", "B1", "B2", "C1", "DAWAH"];
+const ids = new Set(); const LV = ["A1", "A2", "B1", "B2", "C1", "C2", "DAWAH"];
 for (const u of L.UNITS) {
   if (ids.has(u.id)) errs.push("dup unit " + u.id); ids.add(u.id);
   if (!LV.includes(u.lv)) errs.push(u.id + " bad level");
@@ -34,4 +34,7 @@ const ids2 = new Set();
 [...(L.ISLAM_DLG || []), ...L.CONV].forEach(c => { if (ids2.has(c.id)) errs.push("dup " + c.id); ids2.add(c.id); });
 const words = L.UNITS.reduce((n, u) => n + u.w.length, 0), sents = L.UNITS.reduce((n, u) => n + u.s.length + u.g.ex.length, 0), lines = L.UNITS.reduce((n, u) => n + u.d.length, 0) + L.CONV.reduce((n, c) => n + c.d.length, 0);
 console.log(`phrases ${(L.PHRASES||[]).reduce((n,t)=>n+t.s.length,0)} in ${(L.PHRASES||[]).length} topics, decks ${(L.DECKS||[]).reduce((n,d)=>n+d.w.length,0)} words, islam ${(L.ISLAM||[]).reduce((n,c)=>n+c.w.length,0)} words + ${(L.ISLAM||[]).reduce((n,c)=>n+c.s.length,0)} sentences, islam dialogues ${(L.ISLAM_DLG||[]).length}, dawah ${(L.DAWAH||[]).reduce((n,c)=>n+c.s.length,0)}`); console.log(`units ${L.UNITS.length} (${LV.map(l => l + ":" + L.UNITS.filter(u => u.lv === l).length).join(" ")}), words ${words}, sentences ${sents}, dialogue lines ${lines}, conversations ${L.CONV.length}, readings ${L.READ.length}, placement ${L.PLACEMENT.length}, verbs ${L.VERBS.length}`);
+/* بنك الأسئلة والاختبارات الدولية */
+if (L.QBANK) { const qi = new Set(), qq = new Set(); for (const q of L.QBANK) { if (qi.has(q.id)) errs.push("dup qbank " + q.id); qi.add(q.id); if (!["A1", "A2", "B1", "B2", "C1", "C2"].includes(q.lv)) errs.push(q.id + " bad lv"); if (!["gram", "voc", "uso", "lec"].includes(q.sk)) errs.push(q.id + " bad sk"); if (!Array.isArray(q.o) || q.o.length !== 4 || new Set(q.o).size !== 4) errs.push(q.id + " options"); if (!(q.a >= 0 && q.a < 4)) errs.push(q.id + " answer"); if (!q.q || !q.ex) errs.push(q.id + " text"); if (qq.has(q.q)) errs.push(q.id + " dup question"); qq.add(q.q); } }
+if (L.EXAMS) { const E = L.EXAMS; if (!Array.isArray(E.dele) || E.dele.length < 6) errs.push("exams: dele levels"); (E.mocks || []).forEach(m => { if (!m.id || !m.lv || !m.text || !Array.isArray(m.q) || !m.q.length) errs.push("mock " + m.id); m.q.forEach(q => { const [t, o, a] = Array.isArray(q) ? q : [q.q, q.o, q.a]; if (!t || !Array.isArray(o) || !(a >= 0 && a < o.length)) errs.push("mock q " + m.id); }); }); }
 if (errs.length) { console.error(errs.join("\n")); process.exit(1); } else console.log("OK: course data valid");

@@ -8,6 +8,7 @@
     ["B1", "متوسط", "تعبّر عن تجاربك وآرائك وأمنياتك، وتسرد قصة، وتفهم النقاط الرئيسية في كلام واضح."],
     ["B2", "فوق المتوسط", "تناقش موضوعات عامة ومجردة بطلاقة معقولة، وتنقل الكلام، وتجري مقابلة عمل."],
     ["C1", "متقدم", "تفهم التعابير الاصطلاحية والنصوص الطويلة، وتحاجّ وتكتب مراسلات رسمية بدقة."],
+    ["C2", "إتقان", "تفهم كل ما تسمعه وتقرؤه تقريبًا، وتلتقط دقائق المعنى والسخرية واللهجات، وتكتب وتترجم بأسلوب رفيع."],
     ["DAWAH", "الإسبانية للداعية", "مصطلحات إسلامية دقيقة وعبارات حوار دعوي مهذب وأمين، على منهج أهل السنة."]
   ];
   const W = s => { const [es, ar, em] = s.split("|"); return { es, ar, em: em || "" }; };
@@ -141,8 +142,8 @@
       if (x.type === "mc" || x.type === "mcq") $$(".lx-opt", box).forEach(b => b.onclick = () => {
         const o = x.opts[+b.dataset.o]; const right = x.type === "mcq" ? +b.dataset.o === x.ans : o === x.ans;
         b.classList.add(right ? "good" : "bad"); if (!right) $$(".lx-opt", box).find(z => (x.type === "mcq" ? +z.dataset.o === x.ans : x.opts[+z.dataset.o] === x.ans))?.classList.add("good");
-        const ansTxt = x.type === "mcq" ? x.opts[x.ans] : x.ans; if (x.ltr || x.type === "mcq") SAY.say(ansTxt.replace(/^[^\p{L}¿¡]+\s/u, ""));
-        finish(right, right ? "" : `<span ${x.ltr ? 'dir="ltr" lang="es"' : ""}>${esc(ansTxt)}</span>`, x);
+        const ansTxt = x.type === "mcq" ? x.opts[x.ans] : x.ans; if (!x.quiet && (x.ltr || x.type === "mcq")) SAY.say(ansTxt.replace(/^[^\p{L}¿¡]+\s/u, ""));
+        finish(right, (right ? "" : `<span ${x.ltr ? 'dir="ltr" lang="es"' : ""}>${esc(ansTxt)}</span>`) + (x.ex ? `<p class="small lx-exp">💡 ${esc(x.ex)}</p>` : ""), x);
       });
       if (x.type === "match") {
         let sel = null, miss = 0, left = x.pairs.length;
@@ -181,13 +182,14 @@
   function home() {
     const t = today(), dx = P.days[t] || 0, due = srsDue().length, learned = Object.keys(P.srs).length, nu = nextUnit(); const doneN = Object.keys(P.done).length;
     const nPh = L.PHRASES.reduce((a, x) => a + x.s.length, 0), nDk = L.DECKS.reduce((a, x) => a + x.w.length, 0), nIs = L.ISLAM.reduce((a, x) => a + x.w.length + x.s.length, 0);
-    const tiles = [["reto", "⚡", "تحدي اليوم", P.reto && P.reto[t] ? "أُنجز اليوم ✅" : "10 أسئلة + 30 نقطة"], ["islam", "🕌", "الإسبانية الشرعية والدعوية", `${nIs} مصطلحًا وجملة`], ["dialogo", "🗣️", "جمل الحوار مع غير المسلمين", `${L.DAWAH.reduce((a, x) => a + x.s.length, 0)} جملة جاهزة`], ["frases", "🗂️", "كتاب العبارات", `${nPh} عبارة يومية`], ["vocab", "🧩", "بطاقات المفردات", `${nDk} كلمة في ${L.DECKS.length} موضوعًا`], ["diccionario", "📖", "القاموس", "ابحث بالعربية أو الإسبانية"], ["errores", "🎯", "أخطائي", `${(P.miss || []).length} عنصرًا للمراجعة`], ["nivel", "🧭", "حدّد مستواك", "اختبار 20 سؤالًا"], ["repaso", "🔁", "المراجعة الذكية", due ? `${due} كلمة مستحقة اليوم` : "لا مراجعة مستحقة"], ["conv", "💬", "محادثات يومية", `${L.CONV.length} موقفًا بالصوت ولعب الأدوار`], ["verbos", "🔤", "مدرّب الأفعال", `${L.VERBS.length} فعلًا × 7 أزمنة`], ["habilidades", "🎯", "المهارات الأربع", "استماع، نطق، قراءة، كتابة"], ["abc", "🅰️", "الحروف والنطق", "دليل الأصوات للعربي"], ["ninos", "🧒", "ركن الصغار", "ألعاب بالصور والصوت"], ["tutor", "🧑‍🏫", "اسأل المعلّم", "شرح وتصحيح عبر Gemini"], ["progreso", "📊", "تقدّمي", "الإحصاءات والإعدادات"]];
-    return `${R.head("تعلّم الإسبانية من الصفر إلى الاحتراف", "مسار متدرج على مستويات الإطار الأوروبي المرجعي للغات (A1 → C1)، بشرح عربي مبسّط، وصوت لكل كلمة وجملة، ونطق تقريبي بالحروف العربية، وتمارين متنوعة، ومراجعة متباعدة، ومسار خاص للداعية. يناسب الكبار والصغار، ويحفظ تقدّمك في جهازك. كل الدروس مفتوحة: ابدأ من حيث تريد، أو تخطَّ ما تعرفه باختبار قصير.")}
+    const tiles = [["juegos", "🎮", "الألعاب التعليمية", "7 ألعاب: ذاكرة، مشنقة، سرعة…"], ["banco", "🏦", "بنك الأسئلة", `${(L.QBANK || []).length} سؤالًا من A1 إلى C2`], ["dele", "🎓", "الاختبارات الدولية", "DELE وSIELE: الهيكل والمحاكاة"], ["reto", "⚡", "تحدي اليوم", P.reto && P.reto[t] ? "أُنجز اليوم ✅" : "10 أسئلة + 30 نقطة"], ["islam", "🕌", "الإسبانية الشرعية والدعوية", `${nIs} مصطلحًا وجملة`], ["dialogo", "🗣️", "جمل الحوار مع غير المسلمين", `${L.DAWAH.reduce((a, x) => a + x.s.length, 0)} جملة جاهزة`], ["frases", "🗂️", "كتاب العبارات", `${nPh} عبارة يومية`], ["vocab", "🧩", "بطاقات المفردات", `${nDk} كلمة في ${L.DECKS.length} موضوعًا`], ["diccionario", "📖", "القاموس", "ابحث بالعربية أو الإسبانية"], ["errores", "🎯", "أخطائي", `${(P.miss || []).length} عنصرًا للمراجعة`], ["nivel", "🧭", "حدّد مستواك", "اختبار 20 سؤالًا"], ["repaso", "🔁", "المراجعة الذكية", due ? `${due} كلمة مستحقة اليوم` : "لا مراجعة مستحقة"], ["conv", "💬", "محادثات يومية", `${L.CONV.length} موقفًا بالصوت ولعب الأدوار`], ["verbos", "🔤", "مدرّب الأفعال", `${L.VERBS.length} فعلًا × 7 أزمنة`], ["habilidades", "🎯", "المهارات الأربع", "استماع، نطق، قراءة، كتابة"], ["abc", "🅰️", "الحروف والنطق", "دليل الأصوات للعربي"], ["ninos", "🧒", "ركن الصغار", "ألعاب بالصور والصوت"], ["tutor", "🧑‍🏫", "اسأل المعلّم", "شرح وتصحيح عبر Gemini"], ["progreso", "📊", "تقدّمي", "الإحصاءات والإعدادات"]];
+    return `${R.head("تعلّم الإسبانية من الصفر إلى الاحتراف", "مسار متدرج على مستويات الإطار الأوروبي المرجعي للغات (<bdi dir='ltr'>A1 → C2</bdi>)، بشرح عربي مبسّط، وصوت لكل كلمة وجملة، ونطق تقريبي بالحروف العربية، وتمارين متنوعة، ومراجعة متباعدة، ومسار خاص للداعية. يناسب الكبار والصغار، ويحفظ تقدّمك في جهازك. كل الدروس مفتوحة: ابدأ من حيث تريد، أو تخطَّ ما تعرفه باختبار قصير.")}
     <div class="lx-hero card"><div class="lx-kpis"><div><b>⭐ <span id="lx-xp">${P.xp}</span></b><span>نقاط الخبرة</span></div><div><b>🔥 ${streakNow()}</b><span>أيام متتالية</span></div><div><b>📚 ${doneN}/${L.UNITS.length}</b><span>دروس منجزة</span></div><div><b>🧠 ${learned}</b><span>كلمة في ذاكرتك</span></div></div>
       <div class="lx-goal"><span>هدف اليوم: ${Math.min(dx, P.goal)} / ${P.goal} نقطة</span><div class="lx-prog"><i style="width:${Math.min(100, Math.round(dx / P.goal * 100))}%"></i></div></div>
       <div class="lx-row"><a class="btn primary lx-big" href="#aprender/unidad/${nu.id}">${doneN ? "تابع" : "ابدأ"}: ${nu.ic} ${esc(nu.tar)} ←</a>${due ? `<a class="btn" href="#aprender/repaso">🔁 راجع ${due} كلمة</a>` : ""}${P.level ? `<span class="tag gold">مستواك: ${P.level}</span>` : `<a class="btn" href="#aprender/nivel">🧭 لا تعرف مستواك؟</a>`}<label class="small">🎙️ صوت المعلّم <select id="lx-voice">${R.NV.es.map(v => `<option value="${v[0]}"${v[0] === R.TTS.nv("es") ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label></div></div>
+    <nav class="lx-ladder" aria-label="سلّم المستويات">${LEVELS.filter(([lv]) => lv !== "DAWAH" && L.UNITS.some(u => u.lv === lv)).map(([lv, name], i) => { const us = L.UNITS.filter(u => u.lv === lv), pc = Math.round(us.filter(u => P.done[u.id]).length / us.length * 100); return `<a href="#aprender" data-lvjump="${lv}" class="lx-step${P.level === lv ? " me" : ""}" style="--i:${i};--p:${pc}%"><i></i><b>${lv}</b><span>${name}</span><small>${pc}%</small></a>`; }).join("")}</nav>
     <div class="lx-tiles">${tiles.map(([h, ic, t, s]) => `<a class="lx-tile card lift" href="#aprender/${h}"><span class="lx-tic">${ic}</span><b>${t}</b><span class="muted small">${s}</span></a>`).join("")}</div>
-    ${LEVELS.map(([lv, name, desc]) => { const us = L.UNITS.filter(u => u.lv === lv); const d = us.filter(u => P.done[u.id]).length; return `<section class="lx-level" id="lv-${lv}"><div class="row between"><h2>${lv === "DAWAH" ? "🕌" : `<span class="lx-lv">${lv}</span>`} ${name}</h2><span class="muted small">${d}/${us.length}${P.exams[lv] ? ` · اختبار المستوى ${P.exams[lv]}% 🏅` : ""}</span></div><p class="muted">${desc}</p>
+    ${LEVELS.filter(([lv]) => L.UNITS.some(u => u.lv === lv)).map(([lv, name, desc]) => { const us = L.UNITS.filter(u => u.lv === lv); const d = us.filter(u => P.done[u.id]).length; return `<section class="lx-level" id="lv-${lv}"><div class="row between"><h2>${lv === "DAWAH" ? "🕌" : `<span class="lx-lv">${lv}</span>`} ${name}</h2><span class="muted small">${d}/${us.length}${P.exams[lv] ? ` · اختبار المستوى ${P.exams[lv]}% 🏅` : ""}</span></div><p class="muted">${desc}</p>
       <div class="lx-units">${us.map(u => { const st = P.done[u.id]; return `<a class="lx-unit card lift${st ? " done" : ""}${u.id === nu.id ? " next" : ""}" href="#aprender/unidad/${u.id}"><span class="lx-uic">${u.ic}</span><span><b>${esc(u.tar)}</b><br><bdi class="small muted" lang="es">${esc(u.t)}</bdi></span><span class="lx-stars">${st ? "★".repeat(st.stars) + "☆".repeat(3 - st.stars) : ""}</span></a>`; }).join("")}</div>
       ${lv !== "DAWAH" ? `<p><a class="btn" href="#aprender/examen/${lv}">🏅 اختبار المستوى ${lv}</a></p>` : ""}</section>`; }).join("")}
     <p class="muted small">المستويات مبنية على أوصاف الإطار الأوروبي المرجعي المشترك للغات (MCER/CEFR). الموقع أداة تعلّم مجانية وليس جهة مانحة لشهادات رسمية؛ للشهادة المعتمدة يمكنك التقدم لاختبار DELE أو SIELE من معهد ثربانتس.</p>`;
@@ -301,17 +303,17 @@
       <button type="button" class="lx-tile card lift" data-sk="hablar"><span class="lx-tic">🗣️</span><b>التحدث والنطق</b><span class="muted small">${SR ? "انطق والميكروفون يقيّم" : "يتطلب Chrome أو Edge"}</span></button>
       <button type="button" class="lx-tile card lift" data-sk="escribir"><span class="lx-tic">✍️</span><b>الكتابة</b><span class="muted small">ترجم من العربية إلى الإسبانية</span></button>
       <a class="lx-tile card lift" href="#aprender/leer"><span class="lx-tic">📖</span><b>القراءة</b><span class="muted small">${L.READ.length} نصوص بأسئلة فهم</span></a></div>
-      <div class="card"><label>المستوى: <select id="sk-lv">${["A1", "A2", "B1", "B2", "C1", "DAWAH"].map(l => `<option${l === (P.level || "A1") ? " selected" : ""}>${l}</option>`).join("")}</select></label></div><div id="sk-run"></div>`;
+      <div class="card"><label>المستوى: <select id="sk-lv">${["A1", "A2", "B1", "B2", "C1", "C2", "DAWAH"].map(l => `<option${l === (P.level || "A1") ? " selected" : ""}>${l}</option>`).join("")}</select></label></div><div id="sk-run"></div>`;
   }
   function bindSkills() {
     $$("[data-sk]").forEach(b => b.onclick = () => {
       const lv = $("#sk-lv").value; const ss = pick(allSent(lv), 8); const k = b.dataset.sk;
       const list = ss.map(s => k === "escuchar" ? { type: "dict", ...s } : k === "hablar" ? (SR ? { type: "speak", es: s.es } : { type: "order", ...s }) : { type: "type", ...s });
-      runEx($("#sk-run"), list, (ok, total) => { $("#sk-run").innerHTML = `<div class="card lx-result"><div class="lx-em">🎯</div><h2>${ok} من ${total}</h2><button type="button" class="primary" onclick="this.closest('.lx-result').remove()">حسنًا</button></div>`; });
+      runEx($("#sk-run"), list, (ok, total) => { $("#sk-run").innerHTML = `<div class="card lx-result"><div class="lx-em">🎯</div><h2>${ok} من ${total}</h2><button type="button" class="primary" data-xclose="1">حسنًا</button></div>`; });
       $("#sk-run").scrollIntoView({ behavior: "smooth" });
     });
   }
-  function readList() { return `${topbar("#aprender/habilidades", "📖 القراءة")}<div class="lx-units">${[...L.READ].sort((a, b) => ["A1", "A2", "B1", "B2", "C1"].indexOf(a.lv) - ["A1", "A2", "B1", "B2", "C1"].indexOf(b.lv)).map(r => `<a class="lx-unit card lift${P.reads[r.id] ? " done" : ""}" href="#aprender/leer/${r.id}"><span class="lx-lv">${r.lv}</span><span><b>${esc(r.tar)}</b><br><bdi class="small muted" lang="es">${esc(r.t)}</bdi></span><span class="small">${P.reads[r.id] ? P.reads[r.id] + "%" : ""}</span></a>`).join("")}</div>`; }
+  function readList() { return `${topbar("#aprender/habilidades", "📖 القراءة")}<div class="lx-units">${[...L.READ].sort((a, b) => ["A1", "A2", "B1", "B2", "C1", "C2"].indexOf(a.lv) - ["A1", "A2", "B1", "B2", "C1", "C2"].indexOf(b.lv)).map(r => `<a class="lx-unit card lift${P.reads[r.id] ? " done" : ""}" href="#aprender/leer/${r.id}"><span class="lx-lv">${r.lv}</span><span><b>${esc(r.tar)}</b><br><bdi class="small muted" lang="es">${esc(r.t)}</bdi></span><span class="small">${P.reads[r.id] ? P.reads[r.id] + "%" : ""}</span></a>`).join("")}</div>`; }
   function readView(r) {
     const sents = r.text.match(/[^.!?]+[.!?»]+/g) || [r.text];
     return `${topbar("#aprender/leer", `📖 ${esc(r.tar)}`)}<div class="card"><div class="row between"><h2 lang="es" dir="ltr">${esc(r.t)}</h2><span class="lx-lv">${r.lv}</span></div><div class="lx-row"><button type="button" id="rd-all">▶ استمع للنص</button><span class="muted small">اضغط أي جملة لسماعها</span></div>
@@ -404,7 +406,7 @@
     const days = [...Array(14)].map((_, i) => dayAdd(today(), i - 13)); const mx = Math.max(10, ...days.map(d => P.days[d] || 0));
     return `${topbar("#aprender", "📊 تقدّمي")}<div class="card"><div class="lx-kpis"><div><b>${P.xp}</b><span>نقاط</span></div><div><b>${streakNow()}</b><span>أيام متتالية</span></div><div><b>${Object.keys(P.done).length}</b><span>دروس</span></div><div><b>${Object.keys(P.srs).length}</b><span>كلمات</span></div></div>
       <h3>آخر 14 يومًا</h3><div class="lx-chart">${days.map(d => `<div title="${d}: ${P.days[d] || 0}"><i style="height:${Math.round((P.days[d] || 0) / mx * 100)}%"></i><span>${d.slice(8)}</span></div>`).join("")}</div></div>
-      <div class="card"><h3>المستويات</h3>${LEVELS.map(([lv, n]) => { const us = L.UNITS.filter(u => u.lv === lv); const d = us.filter(u => P.done[u.id]).length; return `<div class="lx-lvrow"><span>${lv === "DAWAH" ? "🕌" : lv} ${n}</span><div class="lx-prog"><i style="width:${Math.round(d / us.length * 100)}%"></i></div><span>${d}/${us.length}${P.exams[lv] ? " 🏅" : ""}</span></div>`; }).join("")}</div>
+      <div class="card"><h3>المستويات</h3>${LEVELS.filter(([lv]) => L.UNITS.some(u => u.lv === lv)).map(([lv, n]) => { const us = L.UNITS.filter(u => u.lv === lv); const d = us.filter(u => P.done[u.id]).length; return `<div class="lx-lvrow"><span>${lv === "DAWAH" ? "🕌" : lv} ${n}</span><div class="lx-prog"><i style="width:${Math.round(d / us.length * 100)}%"></i></div><span>${d}/${us.length}${P.exams[lv] ? " 🏅" : ""}</span></div>`; }).join("")}</div>
       <div class="card"><h3>الإعدادات</h3><div class="form"><div class="field"><label for="pg-goal">الهدف اليومي (نقاط)</label><select id="pg-goal">${[10, 20, 30, 50, 100].map(g => `<option${g === P.goal ? " selected" : ""}>${g}</option>`).join("")}</select></div>
       <div class="field"><label><input type="checkbox" id="pg-tr"${P.tr ? " checked" : ""}> إظهار النطق بالحروف العربية</label><label><input type="checkbox" id="pg-big"${P.big ? " checked" : ""}> خط كبير (لكبار السن والصغار)</label></div></div>
       <div class="field"><label for="pg-voice">صوت المعلّم</label><select id="pg-voice">${R.NV.es.map(v => `<option value="${v[0]}"${v[0] === R.TTS.nv("es") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
@@ -424,7 +426,7 @@
   /* ---------- مجموعات إضافية: العبارات، المفردات، القسم الإسلامي ---------- */
   ["PHRASES", "DECKS", "ISLAM", "ISLAM_DLG", "KIDS", "DAWAH"].forEach(k => { L[k] = L[k] || []; });
   function srsAddList(items, src) { let n = 0; items.forEach(x => { if (!P.srs[x.es]) { P.srs[x.es] = { b: 0, d: today(), ar: x.ar, em: x.em || "", u: src }; n++; } }); save(); toast(n ? `أُضيف ${n} إلى المراجعة الذكية` : "موجودة في المراجعة من قبل"); }
-  const lvOrder = ["A1", "A2", "B1", "B2", "C1"];
+  const lvOrder = ["A1", "A2", "B1", "B2", "C1", "C2"];
   const sentRow = e => `<div class="lx-sent"><p class="lx-es" lang="es" dir="ltr">${esc(e.es)} ${sayBtns(e.es, SR ? `<button type="button" class="lx-ic" data-rep="${esc(e.es)}" title="انطقها">🎤</button>` : "")}<button type="button" class="lx-ic" data-copy="${esc(e.es)}" title="نسخ">📋</button></p>${tr(e.es)}<p class="lx-ar">${esc(e.ar)}</p><span class="lx-srz"></span></div>`;
   const wordCard = w => `<div class="lx-word card" data-say="${esc(w.es)}" tabindex="0" role="button">${w.em ? `<span class="lx-em">${w.em}</span>` : ""}<b lang="es" dir="ltr">${esc(w.es)}</b>${tr(w.es)}<span class="lx-ar">${esc(w.ar)}</span><span class="lx-row"><button type="button" class="lx-ic" data-say="${esc(w.es)}" data-slow="1">🐢</button>${SR ? `<button type="button" class="lx-ic" data-rep="${esc(w.es)}">🎤</button>` : ""}</span><span class="lx-srz"></span></div>`;
   function bindCommon(box) {
@@ -505,6 +507,8 @@
     const b = $("#ms-go"); bindCommon($(".lx")); if (!b) return;
     b.onclick = () => { const list = pick(P.miss, 15).map(x => toks(x.es).length > 2 && x.ar ? (Math.random() < 0.5 ? { type: "order", es: x.es, ar: x.ar, fromMiss: 1 } : { type: "type", es: x.es, ar: x.ar, fromMiss: 1 }) : { type: "card", es: x.es, ar: x.ar, em: x.em, fromMiss: 1 }); runEx($("#ms-run"), list, (ok, total) => { $("#ms-run").innerHTML = `<div class="card lx-result"><h2>${ok} من ${total}</h2><a class="btn primary" href="#aprender/errores">تحديث</a></div>`; }); };
   }
+  /* أدوات مشتركة لوحدات الإضافة (الألعاب، بنك الأسئلة، الاختبارات الدولية) */
+  L._ = { P, save, addXP, runEx, topbar, SAY, W, SNT, shuffle, pick, today, LEVELS, lvName, ACC, tr, sayBtns, checkSpeech, SR };
   /* ---------- التوجيه ---------- */
   L.mount = function (view, arg) {
     document.body.classList.toggle("lx-bigtext", !!P.big);
@@ -520,7 +524,7 @@
     else if (sub === "abc") html = abcView();
     else if (sub === "ninos") { const k = id && L.KIDS.find(x => x.id === id) ? id : ""; html = kidsView(k); bind = () => bindKids(k); }
     else if (sub === "nivel") { html = placementView(); bind = bindPlacement; }
-    else if (sub === "examen" && ["A1", "A2", "B1", "B2", "C1"].includes(id)) { html = examView(id); bind = () => bindExam(id); }
+    else if (sub === "examen" && ["A1", "A2", "B1", "B2", "C1", "C2"].includes(id) && L.UNITS.some(u => u.lv === id)) { html = examView(id); bind = () => bindExam(id); }
     else if (sub === "tutor") { html = tutorView(); bind = bindTutor; }
     else if (sub === "progreso") { html = progressView(); bind = bindProgress; }
     else if (sub === "frases") { const ph = L.PHRASES.find(x => x.id === id); html = phrasesView(id); bind = ph ? () => bindSet({ sents: ph.s.map(SNT), lv: ph.lv, src: ph.id }) : () => { }; }
@@ -530,10 +534,13 @@
     else if (sub === "diccionario") { html = dictView(); bind = bindDict; }
     else if (sub === "reto") { html = challengeView(); bind = bindChallenge; }
     else if (sub === "errores") { html = mistakesView(); bind = bindMistakes; }
+    else if (L.EXT && L.EXT[sub]) { const r = L.EXT[sub](id || "", arg); html = r.html; bind = r.bind || (() => { }); }
     else { html = home(); bind = () => { const v = $("#lx-voice"); if (v) v.onchange = e => { R.S.nvEs = e.target.value; R.S.engine = "neural"; R.TTS.down = false; R.saveS(); SAY.say("¡Hola! Vamos a aprender español juntos."); }; }; }
     view.innerHTML = `<div class="lx">${html}</div>`; bind();
   };
   document.addEventListener("click", e => {
+    const xc = e.target.closest("[data-xclose]"); if (xc) { xc.closest(".lx-result")?.remove(); return; }
+    const lj = e.target.closest("[data-lvjump]"); if (lj) { e.preventDefault(); const t = document.getElementById("lv-" + lj.dataset.lvjump); if (t) t.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); return; }
     if (e.target.closest("[data-rep],[data-reveal]")) return;
     const s = e.target.closest("[data-say]"); if (s && s.closest(".lx")) { SAY.say(s.dataset.say, !!s.dataset.slow); return; }
     const ins = e.target.closest("[data-ins]"); if (ins) { const inp = ins.closest(".lx-ex, .card, #vb-quiz")?.querySelector("input[type=text], textarea") || document.activeElement; if (inp && "value" in inp) { const p = inp.selectionStart ?? inp.value.length; inp.value = inp.value.slice(0, p) + ins.dataset.ins + inp.value.slice(inp.selectionEnd ?? p); inp.focus(); inp.setSelectionRange(p + 1, p + 1); } }
