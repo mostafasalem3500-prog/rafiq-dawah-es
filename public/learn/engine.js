@@ -311,7 +311,7 @@
       $("#sk-run").scrollIntoView({ behavior: "smooth" });
     });
   }
-  function readList() { return `${topbar("#aprender/habilidades", "📖 القراءة")}<div class="lx-units">${L.READ.map(r => `<a class="lx-unit card lift${P.reads[r.id] ? " done" : ""}" href="#aprender/leer/${r.id}"><span class="lx-lv">${r.lv}</span><span><b>${esc(r.tar)}</b><br><bdi class="small muted" lang="es">${esc(r.t)}</bdi></span><span class="small">${P.reads[r.id] ? P.reads[r.id] + "%" : ""}</span></a>`).join("")}</div>`; }
+  function readList() { return `${topbar("#aprender/habilidades", "📖 القراءة")}<div class="lx-units">${[...L.READ].sort((a, b) => ["A1", "A2", "B1", "B2", "C1"].indexOf(a.lv) - ["A1", "A2", "B1", "B2", "C1"].indexOf(b.lv)).map(r => `<a class="lx-unit card lift${P.reads[r.id] ? " done" : ""}" href="#aprender/leer/${r.id}"><span class="lx-lv">${r.lv}</span><span><b>${esc(r.tar)}</b><br><bdi class="small muted" lang="es">${esc(r.t)}</bdi></span><span class="small">${P.reads[r.id] ? P.reads[r.id] + "%" : ""}</span></a>`).join("")}</div>`; }
   function readView(r) {
     const sents = r.text.match(/[^.!?]+[.!?»]+/g) || [r.text];
     return `${topbar("#aprender/leer", `📖 ${esc(r.tar)}`)}<div class="card"><div class="row between"><h2 lang="es" dir="ltr">${esc(r.t)}</h2><span class="lx-lv">${r.lv}</span></div><div class="lx-row"><button type="button" id="rd-all">▶ استمع للنص</button><span class="muted small">اضغط أي جملة لسماعها</span></div>
