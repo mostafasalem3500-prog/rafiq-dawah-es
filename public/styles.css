@@ -154,3 +154,12 @@ mark.speaking { background: var(--gold-soft); color: inherit; border-radius: 3px
 .toast.show { opacity: 1; transform: translateX(50%); }
 .foot { padding-block: 26px 110px; color: var(--muted); font-size: .88rem; display: grid; gap: 6px; border-block-start: 1px solid var(--line); }
 @media (max-width: 520px) { .wrap { padding-inline: 16px; } body { font-size: 16px; } .grid { grid-template-columns: 1fr; } .bubble { max-width: 100%; } }
+/* v2 */
+.progress-bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 10px; }
+.progress-bar i { display: block; height: 100%; background: var(--gold, #d9b45a); transition: width .3s; }
+.rv-item input[type=text] { width: 100%; margin-top: 8px; }
+.rv-refs:empty { display: none; }
+.rv-refs { display: grid; gap: 8px; margin-top: 8px; }
+.gem-btn[hidden] { display: none !important; }
+.fav-on { color: var(--gold, #b8860b); }
+#cd-canvas { max-height: 70vh; object-fit: contain; background: var(--line); }

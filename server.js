@@ -24,7 +24,7 @@ app.use((req, res, next) => {
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
   );
   next();
 });
@@ -134,12 +134,66 @@ app.get("/api/ih/:block", async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+/* ---------- Gemini translation (key stays on the server) ---------- */
+const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const TR_DAILY = Number(process.env.TRANSLATE_DAILY_LIMIT || 300);
+const trHits = new Map(); let trDay = { d: "", n: 0 };
+const TR_SYSTEM = `Eres un traductor profesional árabe↔español al servicio de predicadores musulmanes sunníes (Ahl al-Sunnah wal-Jamá'ah).
+Reglas estrictas:
+1. Traduce con fidelidad el sentido completo; no añadas, no omitas, no comentes, no expliques. Devuelve SOLO la traducción.
+2. Español natural y sencillo, apropiado para WhatsApp/Telegram; respeta saltos de línea.
+3. Mantén "Allah" (nunca "Dios" si el original dice الله); ﷺ = "(la paz y las bendiciones de Allah sean con él)"; عليه السلام = "(la paz sea con él)"; رضي الله عنه = "(que Allah esté complacido con él)". Nombres: Muhammad, Isa/Jesús, Musa/Moisés, Maryam/María.
+4. Términos islámicos: escribe el término transliterado y entre paréntesis su sentido la primera vez (p. ej. tawhid (unicidad de Allah), salah (oración)).
+5. Si el texto contiene una aleya del Corán, NO la traduzcas tú: escribe [Aleya: cita la traducción aprobada de QuranEnc.com] con la referencia si se ve. Si contiene un hadiz, traduce sólo si es necesario y añade [Verificar el texto del hadiz en HadeethEnc.com].
+6. Nunca generes fatwas ni opiniones religiosas nuevas; si el texto pide una fatwa, tradúcelo tal cual.
+7. Al traducir del español al árabe usa árabe estándar claro.`;
+app.use("/api/translate", express.json({ limit: "20kb" }));
+app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY, model: GEMINI_KEY ? GEMINI_MODEL : null }));
+app.post("/api/translate", async (req, res) => {
+  if (!GEMINI_KEY) return res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY بعد" });
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
+  const now = Date.now(); const h = (trHits.get(ip) || []).filter(t => now - t < 60000);
+  if (h.length >= 12) return res.status(429).json({ error: "rate", message: "طلبات كثيرة؛ انتظر دقيقة" });
+  h.push(now); trHits.set(ip, h); if (trHits.size > 5000) trHits.clear();
+  const day = new Date().toISOString().slice(0, 10); if (trDay.d !== day) trDay = { d: day, n: 0 };
+  if (trDay.n >= TR_DAILY) return res.status(429).json({ error: "daily", message: "بلغ الموقع الحد اليومي للترجمة" });
+  const { text, dir, tone } = req.body || {};
+  const t = String(text || "").trim();
+  if (!t || t.length > 4000) return res.status(400).json({ error: "bad_text", message: "النص فارغ أو أطول من 4000 حرف" });
+  if (!["es-ar", "ar-es"].includes(dir)) return res.status(400).json({ error: "bad_dir" });
+  const task = dir === "es-ar" ? "Traduce al árabe estándar el siguiente texto en español."
+    : `Traduce al español el siguiente texto en árabe. Trata al lector de ${tone === "usted" ? "usted (registro respetuoso)" : "tú (registro cercano y amable)"}.`;
+  const ck = `tr:${dir}:${tone}:${t}`; const cached = cacheGet(ck, 7 * DAY);
+  if (cached) return res.json(cached);
+  trDay.n++;
+  try {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 25000);
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
+      method: "POST", signal: ctl.signal,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: TR_SYSTEM }] },
+        contents: [{ role: "user", parts: [{ text: `${task}\n\n<<<\n${t}\n>>>` }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
+      })
+    });
+    clearTimeout(to);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { console.error("gemini", r.status, JSON.stringify(j).slice(0, 300)); return res.status(502).json({ error: "gemini", message: (j.error && j.error.message) || `Gemini HTTP ${r.status}` }); }
+    const out = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim().replace(/^<<<\s*|\s*>>>$/g, "");
+    if (!out) return res.status(502).json({ error: "empty", message: "لم يُرجع Gemini ترجمة (ربما حُجب النص)" });
+    const result = { text: out, model: GEMINI_MODEL, engine: "gemini" }; cacheSet(ck, result);
+    res.setHeader("Cache-Control", "no-store"); res.json(result);
+  } catch (e) { res.status(502).json({ error: "gemini", message: e.name === "AbortError" ? "انتهت مهلة الاتصال بـ Gemini" : String(e.message || e) }); }
+});
+
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 
 /* ---------- static ---------- */
 app.use(express.static(path.join(__dirname, "public"), {
   extensions: ["html"],
-  setHeaders(res, p) { if (/\.(js|css|json)$/.test(p)) res.setHeader("Cache-Control", "public, max-age=600"); }
+  setHeaders(res, p) { if (/\.(js|css|json|webmanifest)$/.test(p)) res.setHeader("Cache-Control", "public, max-age=600"); if (/sw\.js$/.test(p)) res.setHeader("Cache-Control", "no-cache"); }
 }));
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, "public", "index.html")));
 

@@ -1,0 +1,13 @@
+{
+  "name": "رفيق الداعية — Compañero de Dawah",
+  "short_name": "رفيق الداعية",
+  "description": "أدوات الداعية بالإسبانية على منهج أهل السنة: رسائل، محادثات، مناهج، ترجمة ونطق، من مصادر IslamHouse وQuranEnc وHadeethEnc.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ec",
+  "theme_color": "#0b4d3c",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
