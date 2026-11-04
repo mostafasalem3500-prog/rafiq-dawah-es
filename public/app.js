@@ -188,10 +188,15 @@
     if (o.id) extra = `<button type="button" data-fav="${o.id}" aria-pressed="${S.favs.includes(o.id)}" title="حفظ في المفضلة">${S.favs.includes(o.id) ? "★ محفوظة" : "☆ احفظ"}</button>${/^m\d/.test(o.id) ? `<a class="btn" href="#tarjetas/${o.id}">🖼 بطاقة</a>` : ""}` + extra;
     return `<div class="actions"><button type="button" data-act="say" data-k="${k}">🔊 استمع</button>${o.ar ? `<button type="button" data-act="say-ar" data-k="${k}">🔊 المعنى</button>` : ""}<button type="button" data-act="copy" data-k="${k}">نسخ</button>${(o.q && o.q.length) || (o.h && o.h.length) ? `<button type="button" data-act="copyref" data-k="${k}">نسخ مع الآية والحديث</button>` : ""}<a class="btn" href="${wa(o.es)}" target="_blank" rel="noopener">واتساب</a>${extra}</div>`;
   }
-  function msgCard(m, hl) {
-    return `<article class="card lift${hl ? " hl" : ""}" id="${m.id}"><div class="row between"><h3>${esc(m.t)}</h3><span class="tags">${m.st.map(s => `<span class="tag gold">${esc(stLbl(s))}</span>`).join("")}</span></div>
-      <p class="es-text" lang="es">${esc(m.es)}</p>${S.showAr ? `<p class="ar-text">${esc(m.ar)}</p>` : ""}
-      <div class="tags">${m.si.map(s => `<span class="tag">${esc(siLbl(s))}</span>`).join("")}</div>
+  /* البحث: كلمات مطوية (بلا تشكيل ولا علامات) ومطابقة كل الكلمات، وتمييز الكلمات المطابقة */
+  const toks = q => fold(q).split(/[\s,.;:!?¿¡«»"()]+/).filter(t => t.length > 1);
+  const hitAll = (text, ts) => { const f = fold(text); return ts.every(t => f.includes(t)); };
+  const hlText = (text, ts) => !ts || !ts.length ? esc(text) : String(text).split(/(\s+)/).map(w => /\s/.test(w) || !ts.some(t => fold(w).includes(t)) ? esc(w) : `<mark>${esc(w)}</mark>`).join("");
+  const wc = s => String(s).split(/\s+/).filter(Boolean).length;
+  function msgCard(m, hl, ts) {
+    return `<article class="card lift${hl ? " hl" : ""}" id="${m.id}"><div class="row between"><h3>${hlText(m.t, ts)}</h3><span class="tags">${m.st.map(s => `<span class="tag gold">${esc(stLbl(s))}</span>`).join("")}</span></div>
+      <p class="es-text" lang="es">${hlText(m.es, ts)}</p>${S.showAr ? `<p class="ar-text">${hlText(m.ar, ts)}</p>` : ""}
+      <div class="tags">${m.si.map(s => `<button type="button" class="tag tag-btn" data-fsi="${s}" title="اعرض رسائل هذا الموقف">${esc(siLbl(s))}</button>`).join("")}</div>
       ${refsHTML(m.q, m.h)}${actions({ id: m.id, es: m.es, ar: m.ar, q: m.q, h: m.h })}</article>`;
   }
   const warnCard = w => `<article class="card warn ${w.lvl}" id="${w.id}"><div class="row between"><h3>${esc(w.t)}</h3><span class="tag ${w.lvl === "red" ? "red" : "amber"}">${w.lvl === "red" ? "خط أحمر" : "تجنّب"}</span></div><p><b>لماذا؟</b> ${esc(w.why)}</p><p><b>البديل:</b> ${esc(w.instead)}</p>${refsHTML(w.q, w.h)}</article>`;
@@ -276,22 +281,62 @@
     out.classList.add("fade");
   }
 
+  /* الرسائل: بحث نصي + شرائح المواقف + مرشحات + تحميل تدريجي */
+  const MF = { q: "", si: "", st: "", au: "", ref: "", len: "", sort: "", fav: "", n: 30 };
   V.mensajes = (arg) => {
-    return `${head("الرسائل القصيرة", "رسائل جاهزة بالإسبانية مع معناها العربي. كل رسالة مرتبطة بآية أو حديث يُجلب من مصدره كما هو. استمع لها، وانسخها، أو أرسلها مباشرة.")}
-      <div class="card"><div class="form"><div class="field"><label for="m-si">الموقف</label><select id="m-si"><option value="">الكل</option>${RQ.SITU.map(s => `<option value="${s.id}">${esc(s.ar)}</option>`).join("")}</select></div>
-      <div class="field"><label for="m-st">المرحلة</label><select id="m-st"><option value="">الكل</option>${RQ.STAGES.map(s => `<option value="${s.id}">${esc(s.ar)}</option>`).join("")}</select></div>
-      <div class="field"><label for="m-au">المحاور</label><select id="m-au"><option value="">الكل</option>${RQ.AUD.filter(a => a.id !== "general").map(s => `<option value="${s.id}">${esc(s.ar)}</option>`).join("")}</select></div>
-      <div class="field"><label for="m-fav">المفضلة</label><select id="m-fav"><option value="">كل الرسائل</option><option value="1">المحفوظة فقط</option></select></div>
-      <div class="field"><label for="m-ar">المعنى العربي</label><select id="m-ar"><option value="1"${S.showAr ? " selected" : ""}>ظاهر</option><option value="0"${!S.showAr ? " selected" : ""}>مخفي</option></select></div></div></div>
-      <p class="muted small" id="m-count"></p><div class="grid" id="m-list"></div>`;
+    if (arg && arg.startsWith("si:")) { MF.si = arg.slice(3); MF.n = 30; }
+    const cnt = id => RQ.MSG.filter(m => m.si.includes(id)).length;
+    const sel = (id, lbl, opts) => `<div class="field"><label for="${id}">${lbl}</label><select id="${id}">${opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("")}</select></div>`;
+    return `${head("الرسائل القصيرة", `${RQ.MSG.length.toLocaleString("en-US")} رسالة جاهزة بالإسبانية مع معناها العربي، مرتبطة بآيات وأحاديث تُجلب من مصادرها كما هي. ابحث بكلمة عربية أو إسبانية، أو اختر الموقف، ثم استمع أو انسخ أو أرسل.`)}
+      <section class="card filt">
+        <div class="f-search"><span aria-hidden="true">🔎</span><input type="search" id="m-q" placeholder="ابحث: صبر، Jesús، رمضان، perdón…" dir="auto" autocomplete="off" value="${esc(MF.q)}"><button type="button" id="m-rand" title="رسالة عشوائية بحسب المرشحات">🎲 عشوائية</button></div>
+        <div class="f-chips" id="m-chips" role="group" aria-label="الموقف"><button type="button" class="chip" data-si="" aria-pressed="${!MF.si}">الكل <small>${RQ.MSG.length}</small></button>${RQ.SITU.map(x => `<button type="button" class="chip" data-si="${x.id}" aria-pressed="${MF.si === x.id}">${esc(x.ar)} <small>${cnt(x.id)}</small></button>`).join("")}</div>
+        <details class="f-more"${MF.st || MF.au || MF.ref || MF.len || MF.sort || MF.fav ? " open" : ""}><summary>مرشحات إضافية</summary><div class="form">
+          ${sel("m-st", "المرحلة", [["", "كل المراحل"], ...RQ.STAGES.map(x => [x.id, x.ar])])}
+          ${sel("m-au", "المحاور", [["", "كل المحاورين"], ...RQ.AUD.filter(a => a.id !== "general").map(x => [x.id, x.ar])])}
+          ${sel("m-ref", "المصادر", [["", "الكل"], ["q", "فيها آية"], ["h", "فيها حديث"], ["0", "بلا إحالات"]])}
+          ${sel("m-len", "الطول", [["", "كل الأطوال"], ["s", "قصيرة (أقل من 45 كلمة)"], ["m", "متوسطة"], ["l", "طويلة (أكثر من 70)"]])}
+          ${sel("m-sort", "الترتيب", [["", "ترتيب الموقع"], ["new", "الأحدث أولًا"], ["short", "الأقصر أولًا"], ["rnd", "عشوائي"]])}
+          ${sel("m-fav", "المفضلة", [["", "كل الرسائل"], ["1", "المحفوظة فقط"]])}
+          ${sel("m-ar", "المعنى العربي", [["1", "ظاهر"], ["0", "مخفي"]])}
+        </div></details>
+        <div class="row between"><span class="muted small" id="m-count" aria-live="polite"></span><span class="row"><button type="button" id="m-reset">↺ مسح المرشحات</button></span></div>
+      </section>
+      <div class="grid" id="m-list"></div><div id="m-more" class="row" style="justify-content:center;margin-top:14px"></div>`;
   };
+  let MLIST = [], MIO = null;
   function renderMsgs(hl) {
-    const si = $("#m-si").value, st = $("#m-st").value, au = $("#m-au").value, fv = $("#m-fav").value;
-    const list = RQ.MSG.filter(m => (!si || m.si.includes(si)) && (!st || m.st.includes(st)) && (!au || m.au.includes(au)) && (!fv || S.favs.includes(m.id)));
-    REG = new Map();
-    $("#m-count").textContent = `${list.length} رسالة`;
-    $("#m-list").innerHTML = list.map(m => msgCard(m, m.id === hl)).join("") || `<p class="empty">لا رسائل بهذه المرشحات.</p>`;
+    const ts = toks(MF.q);
+    let list = RQ.MSG.filter(m => (!MF.si || m.si.includes(MF.si)) && (!MF.st || m.st.includes(MF.st)) && (!MF.au || m.au.includes(MF.au)) && (!MF.fav || S.favs.includes(m.id))
+      && (!MF.ref || (MF.ref === "q" ? m.q.length : MF.ref === "h" ? m.h.length : !m.q.length && !m.h.length))
+      && (!MF.len || (n => MF.len === "s" ? n < 45 : MF.len === "l" ? n > 70 : n >= 45 && n <= 70)(wc(m.es)))
+      && (!ts.length || hitAll(m.t + " " + m.es + " " + m.ar + " " + m.si.map(siLbl).join(" "), ts)));
+    if (MF.sort === "new") list = [...list].reverse(); else if (MF.sort === "short") list = [...list].sort((a, b) => wc(a.es) - wc(b.es)); else if (MF.sort === "rnd") list = [...list].sort(() => Math.random() - .5);
+    if (hl) { const h = RQ.MSG.find(m => m.id === hl); if (h) list = [h, ...list.filter(m => m !== h)]; }
+    MLIST = list; REG = new Map();
+    $("#m-count").innerHTML = `${list.length.toLocaleString("en-US")} رسالة من ${RQ.MSG.length.toLocaleString("en-US")}${ts.length ? ` · البحث: «<bdi>${esc(MF.q)}</bdi>»` : ""}`;
+    $$("#m-chips [data-si]").forEach(b => b.setAttribute("aria-pressed", b.dataset.si === MF.si));
+    drawMsgs(ts, hl);
     if (hl && $("#" + hl)) $("#" + hl).scrollIntoView({ block: "center" });
+  }
+  function drawMsgs(ts, hl) {
+    const shown = MLIST.slice(0, MF.n);
+    $("#m-list").innerHTML = shown.map(m => msgCard(m, m.id === hl, ts)).join("") || `<div class="empty card"><p>لا رسائل بهذه المرشحات.</p><p class="small muted">جرّب كلمة أقصر، أو امسح المرشحات، أو ابحث في كل الموقع.</p><div class="row" style="justify-content:center"><button type="button" id="m-reset2">↺ مسح المرشحات</button>${MF.q ? `<a class="btn" href="#buscar/${encodeURIComponent(MF.q)}">ابحث في كل الموقع</a>` : ""}</div></div>`;
+    const r2 = $("#m-reset2"); if (r2) r2.onclick = resetMF;
+    const more = MLIST.length - shown.length;
+    $("#m-more").innerHTML = more > 0 ? `<button type="button" id="m-more-b">عرض المزيد (${more.toLocaleString("en-US")} متبقية)</button>` : "";
+    const b = $("#m-more-b"); if (b) { b.onclick = () => { MF.n += 30; drawMsgs(ts); }; if ("IntersectionObserver" in window) { MIO && MIO.disconnect(); MIO = new IntersectionObserver(e => { if (e[0].isIntersecting && document.contains(b)) b.click(); }, { rootMargin: "400px" }); MIO.observe(b); } }
+  }
+  function resetMF() { Object.assign(MF, { q: "", si: "", st: "", au: "", ref: "", len: "", sort: "", fav: "", n: 30 }); route(); }
+  function bindMsgs(arg) {
+    const set = { "#m-st": "st", "#m-au": "au", "#m-ref": "ref", "#m-len": "len", "#m-sort": "sort", "#m-fav": "fav" };
+    Object.entries(set).forEach(([sel, k]) => { const el = $(sel); el.value = MF[k]; el.onchange = () => { MF[k] = el.value; MF.n = 30; renderMsgs(); }; });
+    $("#m-ar").value = S.showAr ? "1" : "0"; $("#m-ar").onchange = e => { S.showAr = e.target.value === "1"; saveS(); renderMsgs(); };
+    let t; $("#m-q").oninput = e => { clearTimeout(t); t = setTimeout(() => { MF.q = e.target.value.trim(); MF.n = 30; renderMsgs(); }, 180); };
+    $$("#m-chips [data-si]").forEach(b => b.onclick = () => { MF.si = b.dataset.si; MF.n = 30; renderMsgs(); });
+    $("#m-reset").onclick = resetMF;
+    $("#m-rand").onclick = () => { const pool = MLIST.length ? MLIST : RQ.MSG; const m = pool[Math.floor(Math.random() * pool.length)]; MF.n = Math.max(MF.n, 30); MLIST = [m, ...MLIST.filter(x => x !== m)]; drawMsgs(toks(MF.q), m.id); window.scrollTo({ top: $("#m-list").offsetTop - 90, behavior: "smooth" }); };
+    renderMsgs(arg && !arg.startsWith("si:") ? arg : "");
   }
 
   V.conversaciones = (arg) => {
@@ -455,7 +500,7 @@
   V.buscar = (arg) => {
     const q = decodeURIComponent(arg || ""); const f = fold(q).trim();
     if (!f) return `${head("بحث", "اكتب كلمة في مربع البحث بالأعلى.")}`;
-    const hit = t => fold(t).includes(f);
+    const TS = toks(q); const hit = t => TS.length ? hitAll(t, TS) : fold(t).includes(f);
     const R = [];
     (RQ.SURAS || []).forEach((x, i) => { if (hit("سورة " + x[0] + " " + x[1] + " sura " + (i + 1))) R.push(["سورة", `${i + 1}. سورة ${x[0]}`, `#quran/${i + 1}`, `${x[1]} · ${x[2]} آية`]); });
     if (hit("تفسير العشر الأخير exégesis último décimo tafsir")) R.push(["كتاب", "تفسير العشر الأخير بالإسبانية", "#quran", RQ.TAFSIR10.title]);
@@ -472,7 +517,11 @@
     (RQ.FAQ || []).forEach(c => { if (hit(c.es + " " + c.ar + " " + c.aes + " " + c.aar)) R.push(["سؤال باحث", c.ar, `#preguntas/${c.id}`, c.aes]); });
     (RQ.QUOTES || []).forEach(c => { if (hit(c.es + " " + c.ar)) R.push(["مقتطف IslamHouse", qBook(c.b)[0], `#citas/${c.id}`, c.es]); });
     (RQ.BOOKS || []).forEach(c => { if (hit(c.t + " " + c.note)) R.push(["كتاب IslamHouse", c.t, `#libros`, c.note]); });
-    return `${head(`نتائج البحث عن «${esc(q)}»`, `${R.length} نتيجة`)}${R.length ? `<div style="display:grid;gap:10px">${R.map(r => `<a class="card lift" href="${r[2]}" style="text-decoration:none;color:inherit"><div class="row"><span class="tag gold">${r[0]}</span><b>${esc(r[1])}</b></div><p class="es-text small muted" lang="es">${esc(String(r[3]).slice(0, 180))}</p></a>`).join("")}</div>` : `<p class="empty">لا نتائج. جرّب كلمة أخرى بالعربية أو الإسبانية، أو ابحث في <a href="#biblioteca">المكتبة</a>.</p>`}`;
+    const types = [...new Set(R.map(r => r[0]))];
+    const snip = t => { t = String(t); const w = t.split(/\s+/); const k = w.findIndex(x => TS.some(s => fold(x).includes(s))); return (k > 12 ? "… " : "") + w.slice(Math.max(0, k - 12), Math.max(0, k - 12) + 34).join(" ") + (w.length > Math.max(0, k - 12) + 34 ? " …" : ""); };
+    return `${head(`نتائج البحث عن «${esc(q)}»`, `${R.length.toLocaleString("en-US")} نتيجة في ${types.length} قسمًا. تُطابَق كل الكلمات بلا اعتبار للتشكيل والعلامات.`)}
+      ${R.length ? `<div class="f-chips card filt" id="sr-chips"><button type="button" class="chip" data-ty="" aria-pressed="true">الكل <small>${R.length}</small></button>${types.map(t => `<button type="button" class="chip" data-ty="${t}" aria-pressed="false">${t} <small>${R.filter(r => r[0] === t).length}</small></button>`).join("")}</div>
+      <div style="display:grid;gap:10px" id="sr-list">${R.map((r, i) => `<a class="card lift" href="${r[2]}" data-ty="${r[0]}" ${i >= 60 ? "hidden data-late" : ""} style="text-decoration:none;color:inherit"><div class="row"><span class="tag gold">${r[0]}</span><b>${hlText(r[1], TS)}</b></div><p class="es-text small muted" lang="es" dir="auto">${hlText(snip(r[3]), TS)}</p></a>`).join("")}</div>${R.length > 60 ? `<p class="row" style="justify-content:center"><button type="button" id="sr-more">عرض كل النتائج (${R.length})</button></p>` : ""}` : `<p class="empty">لا نتائج. جرّب كلمة أخرى بالعربية أو الإسبانية، أو ابحث في <a href="#biblioteca">المكتبة</a>.</p>`}`;
   };
 
   /* ---------- curricula (3 tracks) ---------- */
@@ -495,10 +544,20 @@
   };
 
   /* ---------- ideas & series ---------- */
-  V.ideas = () => `${head("أفكار دعوية وسلاسل جاهزة", "أفكار عملية مجرَّبة لفتح باب الحديث، وسلاسل رسائل يومية جاهزة لأنواع المحاورين.")}
-    <div class="grid tight">${RQ.IDEAS.map(i => `<article class="card lift"><div class="row between"><h3>${esc(i.t)}</h3><span class="tag gold">${esc(i.tag)}</span></div><p>${esc(i.body)}</p>${i.link ? `<p><a href="${i.link}">افتح ←</a></p>` : ""}</article>`).join("")}</div>
+  V.ideas = () => { const tags = [...new Set(RQ.IDEAS.map(i => i.tag))]; return `${head("أفكار دعوية وسلاسل جاهزة", `${RQ.IDEAS.length} فكرة عملية لفتح باب الحديث، و${RQ.SERIES.length} سلسلة رسائل يومية جاهزة لأنواع المحاورين. ابحث أو اختر التصنيف.`)}
+    <section class="card filt"><div class="f-search"><span aria-hidden="true">🔎</span><input type="search" id="id-q" placeholder="ابحث في الأفكار: جامعة، رمضان، مستشفى، تواصل…" dir="auto" autocomplete="off"><button type="button" id="id-rand">🎲 فكرة عشوائية</button></div>
+      <div class="f-chips" id="id-chips"><button type="button" class="chip" data-tg="" aria-pressed="true">الكل <small>${RQ.IDEAS.length}</small></button>${tags.map(t => `<button type="button" class="chip" data-tg="${esc(t)}" aria-pressed="false">${esc(t)} <small>${RQ.IDEAS.filter(i => i.tag === t).length}</small></button>`).join("")}</div><p class="muted small" id="id-count"></p></section>
+    <div class="grid tight" id="id-list">${RQ.IDEAS.map((i, n) => `<article class="card lift" data-idea="${n}" data-tg="${esc(i.tag)}"><div class="row between"><h3>${esc(i.t)}</h3><span class="tag gold">${esc(i.tag)}</span></div><p>${esc(i.body)}</p>${i.link ? `<p><a href="${i.link}">افتح ←</a></p>` : ""}</article>`).join("")}</div>
     <h2 id="series">سلاسل رسائل جاهزة</h2><p class="muted">أرسل رسالة واحدة يوميًا، وانتظر رده قبل التالية، وأجب عن أسئلته أولًا.</p>
-    <div style="display:grid;gap:12px">${RQ.SERIES.map(s => { const msgs = s.days.map(id => RQ.MSG.find(m => m.id === id)).filter(Boolean); const k = reg({ es: msgs.map((m, i) => `Día ${i + 1}:\n${m.es}`).join("\n\n") }); return `<details class="card"><summary><b>${esc(s.t)}</b></summary><div class="actions"><button type="button" data-act="copy" data-k="${k}">نسخ السلسلة كاملة</button></div><ol class="steps">${msgs.map((m, i) => { const km = reg({ es: m.es, ar: m.ar, q: m.q, h: m.h }); return `<li><b>اليوم ${i + 1}: ${esc(m.t)}</b><p class="es-text" lang="es">${esc(m.es)}</p><p class="small muted">${esc(m.ar)}</p><div class="actions"><button type="button" data-act="copy" data-k="${km}">نسخ</button><button type="button" data-act="copyref" data-k="${km}">مع الآية</button><button type="button" data-act="say" data-k="${km}">🔊</button><a class="btn" href="#tarjetas/${m.id}">🖼 بطاقة</a></div></li>`; }).join("")}</ol></details>`; }).join("")}</div>`;
+    <div style="display:grid;gap:12px">${RQ.SERIES.map(s => { const msgs = s.days.map(id => RQ.MSG.find(m => m.id === id)).filter(Boolean); const k = reg({ es: msgs.map((m, i) => `Día ${i + 1}:\n${m.es}`).join("\n\n") }); return `<details class="card"><summary><b>${esc(s.t)}</b></summary><div class="actions"><button type="button" data-act="copy" data-k="${k}">نسخ السلسلة كاملة</button></div><ol class="steps">${msgs.map((m, i) => { const km = reg({ es: m.es, ar: m.ar, q: m.q, h: m.h }); return `<li><b>اليوم ${i + 1}: ${esc(m.t)}</b><p class="es-text" lang="es">${esc(m.es)}</p><p class="small muted">${esc(m.ar)}</p><div class="actions"><button type="button" data-act="copy" data-k="${km}">نسخ</button><button type="button" data-act="copyref" data-k="${km}">مع الآية</button><button type="button" data-act="say" data-k="${km}">🔊</button><a class="btn" href="#tarjetas/${m.id}">🖼 بطاقة</a></div></li>`; }).join("")}</ol></details>`; }).join("")}</div>`; };
+
+  function bindIdeas() {
+    let tg = ""; const apply = () => { const ts = toks($("#id-q").value); let n = 0; $$("#id-list [data-idea]").forEach(c => { const i = RQ.IDEAS[+c.dataset.idea]; const ok = (!tg || i.tag === tg) && (!ts.length || hitAll(i.t + " " + i.body + " " + i.tag, ts)); c.hidden = !ok; if (ok) n++; }); $("#id-count").textContent = `${n} فكرة`; $$("#id-chips [data-tg]").forEach(b => b.setAttribute("aria-pressed", b.dataset.tg === tg)); };
+    $$("#id-chips [data-tg]").forEach(b => b.onclick = () => { tg = b.dataset.tg; apply(); });
+    let t; $("#id-q").oninput = () => { clearTimeout(t); t = setTimeout(apply, 150); };
+    $("#id-rand").onclick = () => { const vis = $$("#id-list [data-idea]").filter(c => !c.hidden); const c = vis[Math.floor(Math.random() * vis.length)]; if (!c) return; $$("#id-list .hl").forEach(x => x.classList.remove("hl")); c.classList.add("hl"); c.scrollIntoView({ block: "center", behavior: "smooth" }); };
+    apply();
+  }
 
   /* ---------- Gemini translation ---------- */
   let GEM = null;
@@ -873,7 +932,7 @@
     $$("#nav .nav-grp").forEach(g => { g.classList.toggle("current", !!g.querySelector('a[aria-current="page"]')); g.open = false; });
     document.title = (name === "inicio" ? "" : ($(`#nav a[href="#${name}"]`)?.textContent.replace(/^\S+\s/, (m) => /[\u0600-\u06FF]/.test(m) ? m : "") || "بحث") + " — ") + "رفيق الداعية";
     if (name === "componer") { $("#comp-form").onsubmit = e => { e.preventDefault(); composeResult(); }; if (arg) composeResult(); }
-    if (name === "mensajes") { ["#m-si", "#m-st", "#m-au", "#m-fav"].forEach(s => $(s).onchange = () => renderMsgs()); $("#m-ar").onchange = e => { S.showAr = e.target.value === "1"; saveS(); renderMsgs(); }; renderMsgs(arg); }
+    if (name === "mensajes") bindMsgs(arg);
     if (name === "analizar") {
       const upd = () => { $("#an-tr").href = `https://translate.google.com/?sl=es&tl=ar&op=translate&text=${encodeURIComponent($("#an-text").value.slice(0, 4000))}`; };
       $("#an-text").oninput = upd; upd();
@@ -888,6 +947,7 @@
     if (name === "libros") bindLibros();
     if (name === "citas") bindCitas(arg);
     if (name === "seguimiento") bindSeguimiento();
+    if (name === "ideas") bindIdeas();
     if (name === "quran") bindQuran(arg);
     if (name === "inicio") countUp($("#home-stats"));
     if (name === "preguntas") { $("#fq-q").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$("[data-fq]").forEach(c => c.hidden = q && !c.dataset.fq.includes(q)); }; if (arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "start" }); }
@@ -898,6 +958,7 @@
     if (name === "ideas" && arg === "series" && $("#series")) $("#series").scrollIntoView({ block: "start" });
     if (!["mensajes", "avisos", "guia", "curso", "ideas", "aprender", "preguntas"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
     $("#q").value = name === "buscar" ? decodeURIComponent(arg || "") : "";
+    if (name === "buscar" && $("#sr-chips")) { $$("#sr-chips [data-ty]").forEach(b => b.onclick = () => { const ty = b.dataset.ty; $$("#sr-chips [data-ty]").forEach(x => x.setAttribute("aria-pressed", x === b)); $$("#sr-list [data-ty]").forEach(c => c.hidden = ty ? c.dataset.ty !== ty : c.hasAttribute("data-late")); const m = $("#sr-more"); if (m) m.hidden = !!ty; }); const m = $("#sr-more"); if (m) m.onclick = () => { $$("#sr-list [data-late]").forEach(c => { c.hidden = false; c.removeAttribute("data-late"); }); m.remove(); }; }
   }
   /* لفّ رمز ﷺ في عنصر مستقل حتى لا يكسر خط النص العربي المحيط */
   function wrapSaw(root) {
@@ -919,6 +980,7 @@
     const rb = e.target.closest(".ref-btn"); if (rb) { toggleRef(rb); return; }
     const fb = e.target.closest("[data-fav]"); if (fb) { const id = fb.dataset.fav; S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; saveS(); fb.setAttribute("aria-pressed", S.favs.includes(id)); fb.textContent = S.favs.includes(id) ? "★ محفوظة" : "☆ احفظ"; toast(S.favs.includes(id) ? "حُفظت في المفضلة" : "أزيلت من المفضلة"); return; }
     const gb = e.target.closest(".gem-btn"); if (gb) { runGem(gb); return; }
+    const fs = e.target.closest("[data-fsi]"); if (fs) { MF.si = fs.dataset.fsi; MF.q = ""; MF.n = 30; if (location.hash.startsWith("#mensajes")) { const q = $("#m-q"); if (q) q.value = ""; renderMsgs(); window.scrollTo({ top: 0, behavior: "smooth" }); } else location.hash = "mensajes/si:" + fs.dataset.fsi; return; }
     const b = e.target.closest("[data-act]"); if (!b) return;
     const o = REG.get(b.dataset.k); if (!o) return;
     const act = b.dataset.act;

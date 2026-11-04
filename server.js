@@ -17,6 +17,7 @@ const app = express();
 app.disable("x-powered-by");
 
 /* ---------- security headers ---------- */
+app.use(require("compression")({ filter: (req, res) => !req.path.startsWith("/api/tts") && require("compression").filter(req, res) }));
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");

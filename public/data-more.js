@@ -7,7 +7,12 @@ window.RQ = window.RQ || {};
 RQ.SITU.push(
   { id: "sufrimiento", ar: "لماذا يسمح الله بالألم والشر؟" },
   { id: "religiones", ar: "هل كل الأديان سواء؟" },
-  { id: "practicas", ar: "أسئلة عن الصلاة والصيام والطعام والحجاب" }
+  { id: "practicas", ar: "أسئلة عن الصلاة والصيام والطعام والحجاب" },
+  { id: "ocasion", ar: "مناسبة: رمضان أو العيد أو تهنئة" },
+  { id: "ciencia", ar: "العقل والعلم والكون" },
+  { id: "familia", ar: "الأسرة والأخلاق والمعاملة" },
+  { id: "akhira", ar: "الموت والآخرة" },
+  { id: "felicidad", ar: "القلق والسعادة وطمأنينة القلب" }
 );
 RQ.DETECT.push(
   { si: "sufrimiento", w: ["por que dios permite", "sufrimiento", "si dios existe por que", "injusticia", "guerra y hambre", "ninos sufren", "mal en el mundo", "dios es bueno"] },
