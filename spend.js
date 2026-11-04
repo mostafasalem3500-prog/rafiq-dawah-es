@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BUDGET = Number(process.env.GEMINI_MONTHLY_BUDGET_USD || 35);
+const PAID = process.env.GEMINI_PAID === "1"; // free tier: Google charges nothing, so the cap only reports
 const DIR = process.env.DATA_DIR || require("os").tmpdir();
 const FILE = path.join(DIR, "gemini-spend.json");
 try { fs.mkdirSync(DIR, { recursive: true }); } catch (e) { }
@@ -40,6 +41,6 @@ function record(model, usage, kind) {
   S.usd += usd; S.calls++; S.byKind[kind] = (S.byKind[kind] || 0) + usd; dirty = true;
 }
 /* text features keep working until 100%; audio stops at 85% so translation/tutor keep a reserve */
-function allowed(kind) { roll(); return S.usd < BUDGET * (kind === "tts" ? 0.85 : 1); }
-function report() { roll(); return { month: S.month, spentUSD: +S.usd.toFixed(3), budgetUSD: BUDGET, calls: S.calls, byKind: Object.fromEntries(Object.entries(S.byKind).map(([k, v]) => [k, +v.toFixed(3)])) }; }
+function allowed(kind) { roll(); if (!PAID) return true; return S.usd < BUDGET * (kind === "tts" ? 0.85 : 1); }
+function report() { roll(); return { tier: PAID ? "paid" : "free (no charges; estimate only)", month: S.month, estimatedUSD: +S.usd.toFixed(3), budgetUSD: BUDGET, calls: S.calls, byKind: Object.fromEntries(Object.entries(S.byKind).map(([k, v]) => [k, +v.toFixed(3)])) }; }
 module.exports = { record, allowed, report, BUDGET };
