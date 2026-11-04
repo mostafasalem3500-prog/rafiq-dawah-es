@@ -35,7 +35,7 @@ p { margin: 0; }
 [lang="es"] { font-family: var(--es); }
 
 /* header */
-.top { background: var(--green); color: #fff; position: relative; overflow: hidden; }
+.top { background: var(--green); color: #fff; position: relative; z-index: 20; }
 @media (prefers-color-scheme: dark) { .top { background: #0a2a21; } }
 .top::before { content: ""; position: absolute; inset: 0; opacity: .09; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.2'%3E%3Cpath d='M36 6l9 15 17 3-12 13 3 17-17-8-17 8 3-17L10 24l17-3z'/%3E%3Ccircle cx='36' cy='36' r='9'/%3E%3C/g%3E%3C/svg%3E"); }
@@ -48,7 +48,7 @@ p { margin: 0; }
 .search input { flex: 1; min-width: 0; font: inherit; font-size: .95rem; border-radius: 10px; border: 1px solid rgb(255 255 255 / .25); background: rgb(255 255 255 / .12); color: #fff; padding: 8px 14px; }
 .search input::placeholder { color: rgb(255 255 255 / .7); }
 .search button { font: inherit; font-weight: 700; border: 0; border-radius: 10px; padding: 8px 16px; background: var(--gold-bright); color: #1c1606; cursor: pointer; }
-.nav { display: flex; gap: 2px; overflow-x: auto; position: relative; scrollbar-width: none; padding-block-end: 2px; }
+.nav { display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: center; position: relative; padding-block-end: 2px; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { flex: none; color: rgb(255 255 255 / .82); text-decoration: none; font-weight: 600; font-size: .95rem; padding: 10px 12px; border-block-end: 3px solid transparent; }
 .nav a:hover { color: #fff; }
@@ -267,3 +267,26 @@ body.lx-bigtext .lx .lx-es, body.lx-bigtext .lx .lx-opt { font-size: 1.3rem; }
 .lx-tw:hover, .lx-tw.on { background: var(--gold-soft); }
 .lx-pop-box { position: sticky; top: 8px; z-index: 5; background: var(--surface); border: 2px solid var(--gold-bright); border-radius: 12px; padding: 10px 14px; margin: 8px 0; box-shadow: var(--shadow); }
 .lx-sent.lx-now { background: var(--gold-soft); border-radius: 10px; }
+
+/* grouped navigation */
+.nav-grp { position: relative; }
+.nav-grp > summary { list-style: none; cursor: pointer; color: rgb(255 255 255 / .82); font-weight: 600; font-size: .95rem; padding: 10px 12px; border-block-end: 3px solid transparent; user-select: none; white-space: nowrap; }
+.nav-grp > summary::-webkit-details-marker { display: none; }
+.nav-grp > summary::after { content: " ▾"; font-size: .8em; opacity: .8; }
+.nav-grp[open] > summary::after { content: " ▴"; }
+.nav-grp > summary:hover, .nav-grp[open] > summary { color: #fff; }
+.nav-grp.current > summary { color: #fff; border-color: var(--gold-bright); }
+.nav-menu { position: absolute; inset-inline-start: 0; top: 100%; z-index: 40; min-width: 230px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / .18); padding: 6px; display: grid; gap: 2px; }
+.nav .nav-menu a { color: var(--ink); padding: 10px 12px; border-radius: 8px; border: 0; font-size: .95rem; }
+.nav .nav-menu a:hover { background: var(--green-soft); color: var(--ink); }
+.nav .nav-menu a[aria-current="page"] { background: var(--green-soft); color: var(--green); font-weight: 800; }
+@media (max-width: 640px) {
+  .nav > a, .nav-grp > summary { padding: 8px 9px; font-size: .9rem; }
+  .nav-menu { position: fixed; inset-inline: 10px; top: auto; min-width: 0; margin-top: 4px; }
+}
+
+/* ﷺ in its own run so the surrounding Arabic keeps its font and joining */
+.saw { font-family: "Amiri", "Traditional Arabic", "Times New Roman", serif; font-weight: 400; font-size: 1.15em; line-height: 1; }
+/* leave room so the floating audio player never hides content or buttons */
+body:has(#player:not([hidden])) main { padding-bottom: 110px; }
+@media (max-width: 640px) { body:has(#player:not([hidden])) main { padding-bottom: 150px; } }

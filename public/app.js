@@ -779,7 +779,8 @@
     TTS.stop(); REG = new Map(); if ("speechSynthesis" in window) speechSynthesis.cancel();
     view.innerHTML = V[name](arg); view.classList.remove("fade"); void view.offsetWidth; view.classList.add("fade");
     $$("#nav a").forEach(a => { if (a.getAttribute("href") === "#" + name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
-    document.title = (name === "inicio" ? "" : ($(`#nav a[href="#${name}"]`)?.textContent || "بحث") + " — ") + "رفيق الداعية";
+    $$("#nav .nav-grp").forEach(g => { g.classList.toggle("current", !!g.querySelector('a[aria-current="page"]')); g.open = false; });
+    document.title = (name === "inicio" ? "" : ($(`#nav a[href="#${name}"]`)?.textContent.replace(/^\S+\s/, (m) => /[\u0600-\u06FF]/.test(m) ? m : "") || "بحث") + " — ") + "رفيق الداعية";
     if (name === "componer") { $("#comp-form").onsubmit = e => { e.preventDefault(); composeResult(); }; if (arg) composeResult(); }
     if (name === "mensajes") { ["#m-si", "#m-st", "#m-au", "#m-fav"].forEach(s => $(s).onchange = () => renderMsgs()); $("#m-ar").onchange = e => { S.showAr = e.target.value === "1"; saveS(); renderMsgs(); }; renderMsgs(arg); }
     if (name === "analizar") {
@@ -805,7 +806,19 @@
     if (!["mensajes", "avisos", "guia", "curso", "ideas", "aprender", "preguntas"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
     $("#q").value = name === "buscar" ? decodeURIComponent(arg || "") : "";
   }
+  /* لفّ رمز ﷺ في عنصر مستقل حتى لا يكسر خط النص العربي المحيط */
+  function wrapSaw(root) {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.nodeValue.includes("\uFDFA") && !n.parentElement.closest(".saw, textarea, input, script, style, canvas") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+    const list = []; while (w.nextNode()) list.push(w.currentNode);
+    list.forEach(t => { const f = document.createDocumentFragment(); t.nodeValue.split("\uFDFA").forEach((part, i, a) => { if (part) f.appendChild(document.createTextNode(part)); if (i < a.length - 1) { const sp = document.createElement("span"); sp.className = "saw"; sp.textContent = "\uFDFA"; f.appendChild(sp); } }); t.replaceWith(f); });
+  }
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) wrapSaw(n); else if (n.nodeType === 3 && n.parentElement) wrapSaw(n.parentElement); }))).observe(document.body, { childList: true, subtree: true });
+  wrapSaw(document.body);
   window.addEventListener("hashchange", route);
+  /* القوائم: قائمة واحدة مفتوحة، وتُغلق بالنقر خارجها أو بزر Esc */
+  $$("#nav .nav-grp").forEach(g => g.addEventListener("toggle", () => { if (g.open) $$("#nav .nav-grp").forEach(o => { if (o !== g) o.open = false; }); }));
+  document.addEventListener("click", e => { if (!e.target.closest("#nav .nav-grp")) $$("#nav .nav-grp[open]").forEach(g => g.open = false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") $$("#nav .nav-grp[open]").forEach(g => { g.open = false; g.querySelector("summary").focus(); }); });
   $("#search-form").onsubmit = e => { e.preventDefault(); const q = $("#q").value.trim(); if (q) location.hash = "buscar/" + encodeURIComponent(q); };
 
   /* ---------- global actions ---------- */
