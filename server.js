@@ -168,7 +168,7 @@ Reglas estrictas:
 app.use("/api/translate", express.json({ limit: "20kb" }));
 /* shared Gemini call + per-IP / daily limits */
 function geminiGate(req, res) {
-  if (!GEMINI_KEY && !DEEPSEEK_KEY) { res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY أو DEEPSEEK_API_KEY بعد" }); return false; }
+  if (!GEMINI_KEY && !DEEPSEEK_KEY && !OPENROUTER_KEY) { res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY أو OPENROUTER_API_KEY أو DEEPSEEK_API_KEY بعد" }); return false; }
   if (!spend.allowed("text")) { res.status(503).json({ error: "budget", message: "بلغ الموقع سقف الميزانية الشهرية لـ Gemini؛ تعود الخدمة أول الشهر القادم. استعمل رابط Google في الأثناء." }); return false; }
   const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
   const now = Date.now(); const h = (trHits.get(ip) || []).filter(t => now - t < 60000);
@@ -245,12 +245,48 @@ async function deepseek(system, user, temperature = 0.2) {
   finally { clearTimeout(to); }
 }
 let deepseekState = { ok: null, at: 0, err: "" }, geminiCoolUntil = 0;
-/* text engine: Gemini first (free tier), DeepSeek when Gemini is missing, busy or out of quota */
-async function llm(system, user, temperature = 0.2) {
-  if (GEMINI_KEY && !(DEEPSEEK_KEY && Date.now() < geminiCoolUntil)) {
-    try { return { text: await gemini(system, user, temperature), engine: "gemini" }; }
-    catch (e) { if (!DEEPSEEK_KEY) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; console.error("gemini failed, using deepseek:", String(e.message).slice(0, 120)); }
+/* OpenRouter: paid Gemini layer (prepaid balance, capped monthly by spend.js) between free Gemini and DeepSeek */
+const OPENROUTER_KEY = (process.env.OPENROUTER_API_KEY || "").trim();
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || "google/gemini-3.8-flash,google/gemini-3.5-flash-lite").split(",").map(x => x.trim()).filter(Boolean);
+let openrouterState = { ok: null, at: 0, err: "", model: "" };
+async function openrouterOnce(model, system, user, temperature) {
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST", signal: ctl.signal,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENROUTER_KEY}`, "HTTP-Referer": "https://web-production-d19218.up.railway.app", "X-Title": "Rafiq al-Da'i" },
+      body: JSON.stringify({ model, temperature, max_tokens: 2048, usage: { include: true }, reasoning: { effort: "low", exclude: true }, messages: [{ role: "system", content: system }, { role: "user", content: user }] })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) { const e = new Error((j.error && j.error.message) || `OpenRouter HTTP ${r.status}`); e.status = (j.error && j.error.code) || r.status; throw e; }
+    if (j.usage) spend.recordOR(j.usage.cost != null ? j.usage.cost : 0);
+    const out = String(j.choices?.[0]?.message?.content || "").trim(); if (!out) { const e = new Error("لم يُرجع OpenRouter نصًّا"); e.status = 204; throw e; }
+    return out;
+  } catch (e) { if (e.name === "AbortError") { const t = new Error("انتهت مهلة الاتصال بـ OpenRouter"); t.status = 504; throw t; } throw e; }
+  finally { clearTimeout(to); }
+}
+async function openrouter(system, user, temperature = 0.2) {
+  let last;
+  for (const m of OPENROUTER_MODELS) {
+    try { const out = await openrouterOnce(m, system, user, temperature); openrouterState = { ok: true, at: Date.now(), err: "", model: m }; return out; }
+    catch (e) { last = e; console.error("openrouter", m, e.status, String(e.message).slice(0, 160)); if ([401, 402, 403].includes(Number(e.status))) break; }
   }
+  openrouterState = { ok: false, at: Date.now(), err: String(last && last.message).slice(0, 160), model: "" };
+  throw last;
+}
+/* text engine: Gemini free tier → OpenRouter (paid Gemini, monthly cap) → DeepSeek */
+async function llm(system, user, temperature = 0.2) {
+  const backup = (OPENROUTER_KEY && spend.orAllowed()) || DEEPSEEK_KEY;
+  let last;
+  if (GEMINI_KEY && !(backup && Date.now() < geminiCoolUntil)) {
+    try { return { text: await gemini(system, user, temperature), engine: "gemini" }; }
+    catch (e) { last = e; if (!backup) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; console.error("gemini failed, using backup:", String(e.message).slice(0, 120)); }
+  }
+  if (OPENROUTER_KEY && spend.orAllowed()) {
+    try { return { text: await openrouter(system, user, temperature), engine: "openrouter" }; }
+    catch (e) { last = e; if (!DEEPSEEK_KEY) throw e; console.error("openrouter failed, using deepseek:", String(e.message).slice(0, 120)); }
+  }
+  if (!DEEPSEEK_KEY) throw last || new Error("لا يوجد محرك متاح");
   const text = await deepseek(system, user, temperature); deepseekState = { ok: true, at: Date.now(), err: "" };
   return { text, engine: "deepseek" };
 }
@@ -259,6 +295,11 @@ if (DEEPSEEK_KEY) setTimeout(async () => {
   try { const out = await deepseek(TR_SYSTEM, "Traduce al español el siguiente texto en árabe.\n\n<<<\nالسلام عليكم، كيف حالك؟\n>>>", 0.2); deepseekState = { ok: true, at: Date.now(), err: "" }; console.log(`deepseek selftest OK in ${Date.now() - t0}ms:`, out.slice(0, 80)); }
   catch (e) { deepseekState = { ok: false, at: Date.now(), err: String(e.message).slice(0, 160) }; console.error("deepseek selftest FAILED:", e.status, e.message); }
 }, 3000);
+if (OPENROUTER_KEY) setTimeout(async () => {
+  const t0 = Date.now();
+  try { const out = await openrouter(TR_SYSTEM, "Traduce al español el siguiente texto en árabe.\n\n<<<\nالسلام عليكم، كيف حالك؟\n>>>", 0.2); console.log(`openrouter selftest OK (${openrouterState.model}) in ${Date.now() - t0}ms:`, out.slice(0, 80)); }
+  catch (e) { console.error("openrouter selftest FAILED:", e.status, e.message); }
+}, 4000);
 const TUTOR_SYSTEM = `Eres «المعلّم», un profesor de español paciente y preciso para estudiantes cuya lengua materna es el árabe, dentro de una web de dawah sunní.
 - Responde SIEMPRE en árabe estándar sencillo; escribe los ejemplos en español entre comillas «...» y su traducción árabe.
 - Sé breve y claro: máximo 180 palabras, con viñetas cortas. Adapta el nivel al indicado (MCER).
@@ -277,7 +318,19 @@ app.post("/api/tutor", async (req, res) => {
   catch (e) { res.status(502).json({ error: "llm", message: e.message }); }
 });
 app.get("/api/usage", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json(spend.report()); });
-app.get("/api/translate/status", (req, res) => res.json({ enabled: (!!GEMINI_KEY || !!DEEPSEEK_KEY) && spend.allowed("text"), model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : DEEPSEEK_KEY ? DEEPSEEK_MODEL : null, models: GEMINI_KEY ? GEMINI_FALLBACKS : [], engines: { gemini: !!GEMINI_KEY, deepseek: DEEPSEEK_KEY ? (deepseekState.ok === false ? "error" : "ready") : false }, deepseek: DEEPSEEK_KEY ? deepseekState : null }));
+app.get("/api/translate/status", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json({
+  enabled: (!!GEMINI_KEY || !!DEEPSEEK_KEY || !!OPENROUTER_KEY) && spend.allowed("text"),
+  model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : OPENROUTER_KEY ? OPENROUTER_MODELS[0] : DEEPSEEK_KEY ? DEEPSEEK_MODEL : null,
+  models: GEMINI_KEY ? GEMINI_FALLBACKS : [],
+  engines: {
+    gemini: !!GEMINI_KEY,
+    openrouter: OPENROUTER_KEY ? (!spend.orAllowed() ? "budget" : openrouterState.ok === false ? "error" : "ready") : false,
+    deepseek: DEEPSEEK_KEY ? (deepseekState.ok === false ? "error" : "ready") : false
+  },
+  order: ["gemini", "openrouter", "deepseek"],
+  openrouter: OPENROUTER_KEY ? { ...openrouterState, models: OPENROUTER_MODELS, budgetUSD: spend.OR_BUDGET } : null,
+  deepseek: DEEPSEEK_KEY ? deepseekState : null
+}); });
 app.post("/api/translate", async (req, res) => {
   const { text, dir, tone } = req.body || {};
   const t = String(text || "").trim();
