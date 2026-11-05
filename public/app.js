@@ -66,7 +66,7 @@
       const s = String(text).replace(/\s+/g, " ").match(/[^.!?…؟]+[.!?…؟]*["»”)]*\s*/g)?.map(x => x.trim()).filter(Boolean) || [String(text)];
       return s.flatMap(x => x.length <= 280 ? [x] : x.split(/(?<=[,;:،])\s+/).reduce((a, w) => { if (a.length && (a[a.length - 1] + " " + w).length <= 280) a[a.length - 1] += " " + w; else a.push(w); return a; }, []));
     },
-    url(t, v) { return `/api/tts?v=${encodeURIComponent(v)}&t=${encodeURIComponent(t)}`; },
+    url(t, v) { return `/api/tts?v=${encodeURIComponent(v)}&r=3&t=${encodeURIComponent(t)}`; },
     /* speak(text, lang, onSentence, {voice, rate, quiet}) → Promise that resolves when finished */
     speak(text, lang = "es", onSentence, o = {}) {
       this.stop(true); const my = ++this.tok; const parts = this.split(text); if (!parts.length) return Promise.resolve();
