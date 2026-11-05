@@ -702,22 +702,47 @@
       ["دليل الداعية", RQ.GUIDE.map(g => ({ id: g.id, t: g.t, es: "", ar: g.body.join(" ¶ "), q: g.q, h: g.h }))]
     ];
   }
+  /* نقاط حسّاسة نبّه عليها المراجعون: تُعرض أولًا لطالب العلم */
+  const REV_PRIORITY = ["f22", "f23", "f24", "f25", "f26", "f27", "f28", "f30", "f37", "f40", "f45", "f48", "f49", "d34", "w31", "w37", "mc167", "md008", "md121", "md095", "md141", "mb128", "mb133", "mb160", "mb170", "a58"];
+  const RV = { g: "prio", q: "", pend: false, n: 25 };
+  function revAll() {
+    const groups = revItems();
+    groups.splice(3, 0, ["أسئلة الباحثين", RQ.FAQ.map(f => ({ id: f.id, t: f.ar, es: f.es + " — " + f.aes, ar: f.aar, q: f.q || [], h: f.h || [] }))]);
+    const flat = groups.flatMap(g => g[1]);
+    groups.unshift(["أولوية: نقاط حساسة", REV_PRIORITY.map(id => flat.find(x => x.id === id)).filter(Boolean)]);
+    return groups;
+  }
   V.revision = () => {
-    const R = loadRev(); const groups = revItems(); const all = groups.flatMap(g => g[1]); const done = all.filter(i => R[i.id] && R[i.id].ok).length;
-    return `${head("صفحة المراجعة العلمية", "لطالب العلم المراجِع: كل نص مؤلَّف في الموقع، وبجانبه نصوص الآيات والأحاديث المستشهد بها من مصادرها، ليتأكد أن الاستشهاد في محله. تُحفظ المراجعة في هذا المتصفح، ويمكن نسخ تقريرها وإرساله.")}
-      <div class="card"><div class="row between"><b id="rv-count">روجع ${done} من ${all.length}</b><div class="row"><label class="row small" style="font-weight:600"><input type="checkbox" id="rv-pending"> غير المراجَع فقط</label><button type="button" id="rv-fetch" class="primary">اجلب نصوص كل المراجع</button><button type="button" id="rv-report">نسخ تقرير المراجعة</button></div></div><div class="progress-bar"><i id="rv-bar" style="width:${Math.round(done / all.length * 100)}%"></i></div><p class="muted small" id="rv-status"></p></div>
-      ${groups.map(([name, items]) => `<h2>${name} <span class="muted small">(${items.length})</span></h2><div style="display:grid;gap:10px">${items.map(i => `<article class="card rv-item" data-rv="${i.id}"><div class="row between"><b>${esc(i.id)} · ${esc(i.t)}</b><label class="row small" style="font-weight:700"><input type="checkbox" data-rv-ok="${i.id}"${R[i.id] && R[i.id].ok ? " checked" : ""}> روجع وأُقرّ</label></div>
-        ${i.es ? `<p class="es-text small" lang="es">${esc(i.es)}</p>` : ""}<p class="small">${esc(i.ar)}</p>
-        <div class="small muted">المراجع: ${[...i.q.map(r => "القرآن " + r), ...i.h.map(h => "حديث " + h)].join(" · ") || "—"}</div><div class="rv-refs" data-q="${esc(i.q.join(","))}" data-h="${esc(i.h.join(","))}"></div>
-        <input type="text" data-rv-note="${i.id}" placeholder="ملاحظة المراجع (اختياري)" value="${esc(R[i.id] && R[i.id].note || "")}"></article>`).join("")}</div>`).join("")}`;
+    const R = loadRev(); const groups = revAll(); const all = groups.slice(1).flatMap(g => g[1]); const done = all.filter(i => R[i.id] && R[i.id].ok).length;
+    return `${head("صفحة المراجعة العلمية", "لطالب العلم المراجِع: كل نص مؤلَّف في الموقع، وبجانبه نصوص الآيات والأحاديث المستشهد بها من مصادرها، ليتأكد أن الاستشهاد في محله. ابدأ بتبويب «أولوية» ففيه النقاط الحساسة التي نبّه عليها المراجعون. تُحفظ المراجعة في هذا المتصفح، ويمكن تنزيل تقريرها.")}
+      <section class="card filt"><div class="row between"><b id="rv-count">روجع ${done} من ${all.length}</b><span class="row"><button type="button" id="rv-report">نسخ التقرير</button><button type="button" id="rv-csv">⬇ تقرير CSV</button></span></div>
+        <div class="progress-bar"><i id="rv-bar" style="width:${Math.round(done / all.length * 100)}%"></i></div>
+        <div class="f-chips" id="rv-tabs">${groups.map(([name, items], gi) => { const d = items.filter(i => R[i.id] && R[i.id].ok).length; const id = gi ? "g" + gi : "prio"; return `<button type="button" class="chip" data-rvg="${id}" aria-pressed="${RV.g === id}">${esc(name)} <small>${d}/${items.length}</small></button>`; }).join("")}</div>
+        <div class="f-search"><span aria-hidden="true">🔎</span><input type="search" id="rv-q" placeholder="ابحث بالرقم أو كلمة من النص…" dir="auto" value="${esc(RV.q)}"><label class="row small" style="font-weight:600;white-space:nowrap"><input type="checkbox" id="rv-pending"${RV.pend ? " checked" : ""}> غير المراجَع فقط</label></div>
+        <div class="row"><button type="button" id="rv-fetch" class="primary">اجلب نصوص المراجع للمعروض</button><span class="muted small" id="rv-status"></span></div></section>
+      <div id="rv-list" style="display:grid;gap:10px"></div><div id="rv-more" class="row" style="justify-content:center;margin-top:12px"></div>`;
   };
   function bindRev() {
-    const R = loadRev(); const total = $$(".rv-item").length;
-    const upd = () => { const d = Object.values(R).filter(v => v.ok).length; $("#rv-count").textContent = `روجع ${d} من ${total}`; $("#rv-bar").style.width = Math.round(d / total * 100) + "%"; };
-    $$("[data-rv-ok]").forEach(c => c.onchange = () => { const id = c.dataset.rvOk; R[id] = Object.assign(R[id] || {}, { ok: c.checked }); saveRev(R); upd(); if ($("#rv-pending").checked && c.checked) c.closest(".rv-item").hidden = true; });
-    $$("[data-rv-note]").forEach(i => i.onchange = () => { const id = i.dataset.rvNote; R[id] = Object.assign(R[id] || {}, { note: i.value.trim() }); saveRev(R); });
-    $("#rv-pending").onchange = e => $$(".rv-item").forEach(a => a.hidden = e.target.checked && !!(R[a.dataset.rv] && R[a.dataset.rv].ok));
-    $("#rv-report").onclick = () => { const lines = revItems().flatMap(([g, items]) => [`== ${g} ==`, ...items.map(i => `${R[i.id] && R[i.id].ok ? "✔" : "✗"} ${i.id} ${i.t}${R[i.id] && R[i.id].note ? " — " + R[i.id].note : ""}`)]); copy(`تقرير المراجعة العلمية — رفيق الداعية (${new Date().toISOString().slice(0, 10)})\n` + lines.join("\n"), "نُسخ تقرير المراجعة"); };
+    const R = loadRev(); const groups = revAll(); const all = groups.slice(1).flatMap(g => g[1]);
+    const cur = () => { const gi = RV.g === "prio" ? 0 : +RV.g.slice(1); const ts = toks(RV.q); return groups[gi][1].filter(i => (!RV.pend || !(R[i.id] && R[i.id].ok)) && (!ts.length || hitAll(i.id + " " + i.t + " " + (i.es || "") + " " + i.ar, ts))); };
+    const upd = () => { const d = all.filter(i => R[i.id] && R[i.id].ok).length; $("#rv-count").textContent = `روجع ${d} من ${all.length}`; $("#rv-bar").style.width = Math.round(d / all.length * 100) + "%"; $$("#rv-tabs [data-rvg]").forEach((b, gi) => { const it = groups[gi][1]; b.querySelector("small").textContent = `${it.filter(i => R[i.id] && R[i.id].ok).length}/${it.length}`; }); };
+    const card = i => `<article class="card rv-item" data-rv="${i.id}"><div class="row between"><b>${esc(i.id)} · ${esc(i.t)}</b><label class="row small" style="font-weight:700"><input type="checkbox" data-rv-ok="${i.id}"${R[i.id] && R[i.id].ok ? " checked" : ""}> روجع وصحيح</label></div>
+        ${i.es ? `<p class="es-text small" lang="es">${esc(i.es)}</p>` : ""}<p class="small">${esc(i.ar)}</p>
+        <div class="small muted">المراجع: ${[...i.q.map(r => "القرآن " + r), ...i.h.map(h => "حديث " + h)].join(" · ") || "—"}</div><div class="rv-refs" data-q="${esc(i.q.join(","))}" data-h="${esc(i.h.join(","))}"></div>
+        <input type="text" data-rv-note="${i.id}" placeholder="ملاحظة المراجع (اختياري)" value="${esc(R[i.id] && R[i.id].note || "")}"></article>`;
+    const draw = () => {
+      const list = cur(); $("#rv-list").innerHTML = list.slice(0, RV.n).map(card).join("") || `<p class="empty card">لا عناصر بهذا الاختيار.</p>`;
+      $("#rv-more").innerHTML = list.length > RV.n ? `<button type="button" id="rv-more-b">عرض المزيد (${list.length - RV.n})</button>` : "";
+      const mb = $("#rv-more-b"); if (mb) mb.onclick = () => { RV.n += 25; draw(); };
+      $$("[data-rv-ok]").forEach(c => c.onchange = () => { const id = c.dataset.rvOk; R[id] = Object.assign(R[id] || {}, { ok: c.checked, at: new Date().toISOString().slice(0, 10) }); saveRev(R); upd(); });
+      $$("[data-rv-note]").forEach(x => x.onchange = () => { const id = x.dataset.rvNote; R[id] = Object.assign(R[id] || {}, { note: x.value.trim() }); saveRev(R); });
+    };
+    $$("#rv-tabs [data-rvg]").forEach(b => b.onclick = () => { RV.g = b.dataset.rvg; RV.n = 25; $$("#rv-tabs [data-rvg]").forEach(x => x.setAttribute("aria-pressed", x === b)); draw(); });
+    let t; $("#rv-q").oninput = e => { clearTimeout(t); t = setTimeout(() => { RV.q = e.target.value.trim(); RV.n = 25; draw(); }, 200); };
+    $("#rv-pending").onchange = e => { RV.pend = e.target.checked; RV.n = 25; draw(); };
+    const lines = () => groups.slice(1).flatMap(([g, items]) => items.map(i => [g, i.id, i.t, R[i.id] && R[i.id].ok ? "روجع" : "لم يُراجع", (R[i.id] && R[i.id].note) || ""]));
+    $("#rv-report").onclick = () => copy(`تقرير المراجعة العلمية — رفيق الداعية\n${lines().map(l => `${l[3] === "روجع" ? "✔" : "✗"} ${l[1]} ${l[2]}${l[4] ? " — " + l[4] : ""}`).join("\n")}`, "نُسخ التقرير");
+    $("#rv-csv").onclick = () => { const q = v => `"${String(v).replace(/"/g, '""')}"`; const csv = "﻿" + [["القسم", "الرقم", "العنوان", "الحالة", "الملاحظة"], ...lines()].map(r => r.map(q).join(",")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "rafiq-review.csv"; document.body.appendChild(a); a.click(); a.remove(); };
     $("#rv-fetch").onclick = async () => {
       const boxes = $$(".rv-refs"); const jobs = [];
       boxes.forEach(b => { b.innerHTML = ""; (b.dataset.q ? b.dataset.q.split(",") : []).forEach(r => jobs.push([b, "q", r])); (b.dataset.h ? b.dataset.h.split(",") : []).forEach(h => jobs.push([b, "h", h])); });
@@ -728,6 +753,7 @@
       } catch (e) { if (tries < 2) { await new Promise(r => setTimeout(r, 4000)); jobs.push([b, kind, v, tries + 1]); continue; } fail++; b.insertAdjacentHTML("beforeend", `<div class="notice amber small">تعذّر جلب ${kind === "q" ? "الآية" : "الحديث"} ${esc(v)}</div>`); } n++; $("#rv-status").textContent = `جُلب ${n} مرجعًا${fail ? `، وتعذّر ${fail}` : ""}`; } };
       await Promise.all([work(), work(), work()]); $("#rv-fetch").disabled = false;
     };
+    draw();
   }
 
   /* ---------- v3: بناء الثقة، أسئلة الباحثين، دليل الكتب، متابعة المحاورين ---------- */
