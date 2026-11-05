@@ -523,13 +523,13 @@
   /* ---------- curricula (3 tracks) ---------- */
   V.curso = (arg) => {
     const tab = arg === "nuevo" ? "nuevo" : arg === "dai" ? "dai" : "dawah";
-    const tabs = `<div class="tabs">${[["dawah", "اكتشف الإسلام: 12 لقاءً", "#curso"], ["nuevo", "منهج المسلم الجديد: 8 دروس", "#curso/nuevo"], ["dai", "دروس الداعية: 8 دروس", "#curso/dai"]].map(t => `<a class="btn chip" href="${t[2]}" aria-pressed="${tab === t[0]}">${t[1]}</a>`).join("")}</div>`;
-    if (tab === "nuevo") return `${head("منهج المسلم الجديد", "<span lang='es'>Curso para el nuevo musulmán</span> — ثمانية دروس قصيرة بالإسبانية مع المعنى العربي وتمرين عملي لكل درس، للرفيق الذي يتابع المسلم الجديد.")}${tabs}
+    const tabs = `<div class="tabs">${[["dawah", "اكتشف الإسلام: 12 لقاءً", "#curso"], ["nuevo", `منهج المسلم الجديد: ${RQ.NEWM.length} درسًا`, "#curso/nuevo"], ["dai", `دروس الداعية: ${RQ.TRAIN.length} درسًا`, "#curso/dai"]].map(t => `<a class="btn chip" href="${t[2]}" aria-pressed="${tab === t[0]}">${t[1]}</a>`).join("")}</div>`;
+    if (tab === "nuevo") return `${head("منهج المسلم الجديد", `<span lang='es'>Curso para el nuevo musulmán</span> — ${RQ.NEWM.length} درسًا قصيرًا بالإسبانية مع المعنى العربي وتمرين عملي لكل درس، للرفيق الذي يتابع المسلم الجديد.`)}${tabs}
       <div style="display:grid;gap:12px">${RQ.NEWM.map(c => { const k = reg({ es: c.es, ar: c.ar, q: c.q, h: c.h }); const kp = reg({ es: c.practice.es, ar: c.practice.ar }); return `<details class="card" id="n${c.n}"${c.n === 1 ? " open" : ""}><summary><span class="row"><span class="num">${c.n}</span><span><b>${esc(c.tar)}</b><br><span class="muted small" lang="es">${esc(c.t)}</span></span></span></summary>
         <p><b>الهدف:</b> ${esc(c.goal)}</p><p class="es-text big" lang="es">${esc(c.es)}</p><p class="ar-text">${esc(c.ar)}</p>
         <div class="actions"><button type="button" data-act="say" data-k="${k}">🔊 استمع</button><button type="button" data-act="say-ar" data-k="${k}">🔊 المعنى</button><button type="button" data-act="copyref" data-k="${k}">نسخ مع الآيات</button></div>
         <div class="notice small"><b>تمرين:</b> <span lang="es" class="es-text">${esc(c.practice.es)}</span><br>${esc(c.practice.ar)} <button type="button" data-act="copy" data-k="${kp}">نسخ</button></div>${refsHTML(c.q, c.h)}</details>`; }).join("")}</div>`;
-    if (tab === "dai") return `${head("دروس الداعية", "ثمانية دروس تدريبية بالعربية لتأهيل الداعية، مع تمرين عملي لكل درس، على منهج أهل السنة والجماعة.")}${tabs}
+    if (tab === "dai") return `${head("دروس الداعية", `${RQ.TRAIN.length} درسًا تدريبيًّا بالعربية لتأهيل الداعية، مع تمرين عملي لكل درس، على منهج أهل السنة والجماعة.`)}${tabs}
       <div class="grid">${RQ.TRAIN.map(c => `<article class="card" id="t${c.n}"><div class="row"><span class="num">${c.n}</span><h3>${esc(c.t)}</h3></div><ul class="steps">${c.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul><p class="notice small"><b>تمرين:</b> ${esc(c.practice)}</p>${refsHTML(c.q, c.h)}</article>`).join("")}</div>`;
     return `${head("المنهج: اكتشف الإسلام في 12 لقاءً", "<span lang='es'>Descubre el islam en 12 encuentros</span> — منهج متدرج يبدأ بسؤال الغاية وينتهي بالشهادتين. لكل لقاء هدف وفكرة أساسية بالإسبانية، وسؤال تطرحه، ونصوص من مصادرها، ونوع مادة مقترحة من IslamHouse.")}${tabs}
     <div style="display:grid;gap:12px">${RQ.COURSE.map(c => { const k = reg({ es: c.es, ar: c.ar, q: c.q, h: c.h }); const kq = reg({ es: c.ask.es, ar: c.ask.ar }); return `<details class="card" id="c${c.n}"${String(c.n) === String(arg) ? " open" : ""}><summary><span class="row"><span class="num">${c.n}</span><span><b>${esc(c.tar)}</b><br><span class="muted small" lang="es">${esc(c.t)}</span></span></span></summary>
@@ -948,11 +948,11 @@
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
-  const LEARN_V = 5, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "engine", "play"];
+  const LEARN_V = 6, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "conv-b", "qbank", "exams", "engine", "play"];
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
-    const files = LEARN_FILES, optional = new Set(["c2", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play"]);
+    const files = LEARN_FILES, optional = new Set(["c2", "units-more", "units-more2", "vocab-c", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play"]);
     learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=${LEARN_V}`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;

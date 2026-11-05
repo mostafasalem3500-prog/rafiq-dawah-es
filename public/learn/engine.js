@@ -510,7 +510,9 @@
   /* أدوات مشتركة لوحدات الإضافة (الألعاب، بنك الأسئلة، الاختبارات الدولية) */
   L._ = { P, save, addXP, runEx, topbar, SAY, W, SNT, shuffle, pick, today, LEVELS, lvName, ACC, tr, sayBtns, checkSpeech, SR };
   /* ---------- التوجيه ---------- */
+  let sorted = false;
   L.mount = function (view, arg) {
+    if (!sorted) { sorted = true; const lo = LEVELS.map(l => l[0]); L.UNITS.sort((a, b) => (lo.indexOf(a.lv) - lo.indexOf(b.lv)) || a.id.localeCompare(b.id)); }
     document.body.classList.toggle("lx-bigtext", !!P.big);
     const [sub, id] = (arg || "").split("/"); let html, bind = () => { };
     if (sub === "unidad" && unitById(id)) { const u = unitById(id); html = lessonView(u); bind = () => bindLesson(u); }
