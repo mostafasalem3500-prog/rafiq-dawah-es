@@ -628,7 +628,7 @@
     const upd = () => { const d = $("#tr-dir").value; $("#tr-go").dataset.gemDir = d; const [sl, tl] = d.split("-"); $("#tr-google").href = `https://translate.google.com/?sl=${sl}&tl=${tl}&op=translate&text=${encodeURIComponent($("#tr-text").value.slice(0, 4000))}`; $("#tr-text").setAttribute("lang", sl); };
     $("#tr-dir").onchange = upd; $("#tr-text").oninput = upd; $("#tr-tone").value = S.tone;
     $("#tr-tone").onchange = e => { S.tone = e.target.value; saveS(); }; upd();
-    $("#tr-say").onclick = () => { const t = $("#tr-text").value.trim(); if (t) TTS.speak(t, $("#tr-dir").value.startsWith("es") ? "es" : "ar"); };
+    $("#tr-say").onclick = () => { const t = $("#tr-text").value.trim(); if (!t) return toast("اكتب النص أوّلًا ثم اضغط استمع"); TTS.speak(t, $("#tr-dir").value.startsWith("es") ? "es" : "ar"); };
   }
 
   /* ---------- image cards ---------- */
@@ -712,9 +712,9 @@
     ["#cd-msg", "#cd-size", "#cd-theme", "#cd-deco", "#cd-verse", "#cd-ar"].forEach(s => $(s).onchange = () => { keep(); drawCard(); });
     $("#cd-sign").addEventListener("change", keep);
     $("#cd-rand").onclick = () => { const opts = $$("#cd-msg option").filter(o => o.value !== "custom" && !o.hidden); const o = opts[Math.floor(Math.random() * opts.length)]; if (o) { $("#cd-msg").value = o.value; drawCard(); } };
-    $("#cd-share").hidden = !(navigator.canShare); $("#cd-share").onclick = () => $("#cd-canvas").toBlob(async b => { const f = new File([b], `tarjeta-${$("#cd-msg").value}.png`, { type: "image/png" }); try { if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], text: "" }); else toast("المشاركة غير مدعومة؛ نزّل الصورة"); } catch (e) { } }, "image/png");
+    $("#cd-share").hidden = !(navigator.canShare); $("#cd-share").onclick = () => $("#cd-canvas").toBlob(async b => { const f = new File([b], `tarjeta-${($("#cd-msg") || {}).value || "rafiq"}.png`, { type: "image/png" }); try { if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], text: "" }); else toast("المشاركة غير مدعومة؛ نزّل الصورة"); } catch (e) { } }, "image/png");
     let t; ["#cd-custom", "#cd-sign"].forEach(s => $(s).oninput = () => { clearTimeout(t); t = setTimeout(drawCard, 250); });
-    $("#cd-dl").onclick = () => { $("#cd-canvas").toBlob(b => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `tarjeta-${$("#cd-msg").value}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("نُزّلت الصورة"); }, "image/png"); };
+    $("#cd-dl").onclick = () => { $("#cd-canvas").toBlob(b => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `tarjeta-${($("#cd-msg") || {}).value || "rafiq"}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("نُزّلت الصورة"); }, "image/png"); };
     $("#cd-copy").onclick = () => { const id = $("#cd-msg").value; const m = RQ.MSG.find(z => z.id === id); copy(id === "custom" ? $("#cd-custom").value : m.es); };
     drawCard();
   }
@@ -842,7 +842,7 @@
         <div class="small"><b>رسائل مقترحة لم تُرسل له:</b> ${s.map(m => `<button type="button" class="chip" data-ctm="${i}|${m.id}">${esc(m.t)}</button>`).join(" ") || "—"}</div>
         <div class="actions"><button type="button" data-ctdone="${i}">✔ تواصلت اليوم (+3 أيام)</button><select data-ctst="${i}">${RQ.STAGES.map(st => `<option value="${st.id}"${st.id === c.st ? " selected" : ""}>${esc(st.ar)}</option>`).join("")}</select><a class="btn" href="#componer">المُركِّب</a><button type="button" data-ctdel="${i}">حذف</button></div></article>`; }).join("");
     };
-    $("#ct-form").onsubmit = e => { e.preventDefault(); C.push({ n: $("#ct-n").value.trim(), au: $("#ct-a").value, st: $("#ct-s").value, i: $("#ct-i").value.trim(), next: $("#ct-d").value, last: "", sent: [] }); saveCt(C); e.target.reset(); $("#ct-d").value = dIso(3); render(); toast("أُضيف"); };
+    $$("#ct-form [required]").forEach(f => f.oninvalid = () => toast("اكتب اسم الشخص أوّلًا")); $("#ct-form").onsubmit = e => { e.preventDefault(); C.push({ n: $("#ct-n").value.trim(), au: $("#ct-a").value, st: $("#ct-s").value, i: $("#ct-i").value.trim(), next: $("#ct-d").value, last: "", sent: [] }); saveCt(C); e.target.reset(); $("#ct-d").value = dIso(3); render(); toast("أُضيف"); };
     $("#ct-list").addEventListener("click", e => {
       const m = e.target.closest("[data-ctm]"); if (m) { const [i, id] = m.dataset.ctm.split("|"); const msg = RQ.MSG.find(x => x.id === id); copy(msg.es, "نُسخت الرسالة؛ سُجّلت له"); const c = C[+i]; c.sent = [...(c.sent || []), id]; c.last = dIso(); c.next = dIso(3); saveCt(C); render(); return; }
       const d = e.target.closest("[data-ctdone]"); if (d) { const c = C[+d.dataset.ctdone]; c.last = dIso(); c.next = dIso(3); saveCt(C); render(); return; }
@@ -981,7 +981,7 @@
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
-  const LEARN_V = 7, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
+  const LEARN_V = 8, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
@@ -1041,7 +1041,7 @@
     if (name === "analizar") {
       const upd = () => { $("#an-tr").href = `https://translate.google.com/?sl=es&tl=ar&op=translate&text=${encodeURIComponent($("#an-text").value.slice(0, 4000))}`; };
       $("#an-text").oninput = upd; upd();
-      $("#an-go").onclick = analyze; $("#an-say").onclick = () => { const t = $("#an-text").value.trim(); if (t) TTS.speak(t, "es"); };
+      $("#an-go").onclick = analyze; $("#an-say").onclick = () => { const t = $("#an-text").value.trim(); if (!t) return toast("الصق الرسالة الإسبانية أوّلًا ثم اضغط استمع"); TTS.speak(t, "es"); };
       $("#an-sample").onclick = () => { $("#an-text").value = "Hola. Mi padre murió hace poco y estoy muy triste. Soy católico, pero tengo curiosidad: ¿los musulmanes creen en Jesús? ¿Y es verdad que el islam obliga a las mujeres a taparse?"; upd(); analyze(); };
     }
     if (name === "biblioteca") { $$("[data-lib]").forEach(b => b.onclick = () => { LIB.tab = b.dataset.lib; renderLib(); }); renderLib(); }

@@ -503,15 +503,21 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
 /* الطريقة الاحترافية */
 .mt-hero { border-inline-start: 4px solid var(--green-2); }
 .mt-plan { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 0; margin: 10px 0; list-style: none; counter-reset: mt; }
-.mt-plan li { background: var(--green-soft); color: var(--green); border-radius: 999px; padding: 4px 12px; font-size: .9rem; }
+.mt-plan li a { display: inline-block; background: var(--green-soft); color: var(--green); border: 1px solid transparent; border-radius: 999px; padding: 6px 14px; font-size: .9rem; text-decoration: none; }
+.mt-plan li a:hover, .mt-plan li a:focus-visible { border-color: var(--green-2); }
 .mt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-block: 12px; }
 .mt-m h3 { margin: 0 0 6px; font-size: 1.05rem; } .mt-m h3 small { font-weight: 400; font-size: .75rem; display: block; }
 .mt-m p { margin: 0 0 10px; font-size: .95rem; }
 .mt-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 10px; }
-.mt-steps span { flex: 0 0 auto; width: auto; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: .88rem; color: var(--muted); background: var(--surface); }
-.mt-steps span.mt-on { border-color: var(--green-2); color: var(--green); background: var(--green-soft); font-weight: 700; }
-.mt-steps span.mt-ok { color: var(--green-2); } .mt-steps span.mt-ok::after { content: " ✓"; }
+.mt-steps button { flex: 0 0 auto; width: auto; min-height: 0; cursor: pointer; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: .88rem; color: var(--muted); background: var(--surface); }
+.mt-steps button.mt-on { border-color: var(--green-2); color: var(--green); background: var(--green-soft); font-weight: 700; }
+.mt-steps button.mt-ok { color: var(--green-2); } .mt-steps button.mt-ok::after { content: " ✓"; }
 .mt-card .lx-ar.big { font-size: 1.5rem; font-weight: 700; margin: 6px 0 10px; }
 .mt-line .mt-turn { display: block; min-height: 1.2em; }
 .mt-line.lx-now .mt-turn { color: var(--green-2); font-weight: 700; }
 #mt-out { width: 100%; }
+
+/* زر تشغيل واضح بجانب كل كلمة */
+.lx-word .lx-play { background: var(--green-2); color: #fff; border-color: var(--green-2); }
+.lx-kcard { position: relative; } .lx-kcard .lx-kplay { position: absolute; top: 6px; inset-inline-end: 8px; font-style: normal; font-size: .9rem; opacity: .85; }
+[data-say], [data-li], [data-ref] { cursor: pointer; -webkit-tap-highlight-color: rgb(18 115 90 / .15); }

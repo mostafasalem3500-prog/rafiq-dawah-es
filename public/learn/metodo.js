@@ -33,8 +33,8 @@
     return `${topbar("#aprender", "🧭 الطريقة الاحترافية")}
       <div class="card mt-hero"><h2>جلسة اليوم الموجّهة — 20 دقيقة</h2>
         <p class="muted">خمس محطّات مبنية على أبحاث تعلّم اللغات: مراجعة متباعدة بالاسترجاع النشط، ثم قوالب جاهزة تسمعها وتكرّرها، ثم ترديد حوار يومي، ثم إملاء، ثم إنتاج تتكلّم فيه بنفسك ويصحّحه المعلّم. المستوى: <b>${lv()}</b>${P.level ? "" : ` · <a href="#aprender/nivel">حدّد مستواك</a>`}</p>
-        <ol class="mt-plan"><li>🔁 مراجعة واسترجاع (5 د)</li><li>🧩 قوالب جاهزة (4 د)</li><li>🎧 ترديد حوار (4 د)</li><li>✍️ إملاء (3 د)</li><li>🗣️ تكلّم واكتب (4 د)</li></ol>
-        <div class="lx-row"><a class="btn primary lx-big" href="#aprender/metodo/sesion">${done ? "✅ أنجزت جلسة اليوم — أعدها" : "▶ ابدأ جلسة اليوم"}</a><span class="tag gold">جلسات منجزة: ${nDays}</span></div></div>
+        <p class="small muted">اضغط أيّ محطّة لتبدأ منها مباشرة:</p><ol class="mt-plan">${[["🔁", "مراجعة واسترجاع", 5], ["🧩", "قوالب جاهزة", 4], ["🎧", "ترديد حوار", 4], ["✍️", "إملاء", 3], ["🗣️", "تكلّم واكتب", 4]].map(([ic, n, m], i) => `<li><a href="#aprender/metodo/sesion/${i}">${ic} ${n} (${m} د) ←</a></li>`).join("")}</ol>
+        <div class="lx-row"><a class="btn primary lx-big" href="#aprender/metodo/sesion">${done ? "✅ أنجزت جلسة اليوم — أعدها" : "▶ ابدأ جلسة اليوم"}</a><span class="muted small">جلسات منجزة: <b>${nDays}</b></span></div></div>
       <h2>عشر طرق احترافية يستعملها معلّمو اللغات</h2>
       <div class="mt-grid">${METHODS.map(([ic, ar, en, d, href, cta]) => `<article class="card mt-m"><h3><span aria-hidden="true">${ic}</span> ${ar} <small class="muted" dir="ltr">${en}</small></h3><p>${d}</p><a class="btn" href="${href}">${cta} ←</a></article>`).join("")}</div>
       <div class="card"><h3>نصائح ذهبية</h3><ul class="steps">
@@ -127,7 +127,7 @@
   PROMPTS.C2 = PROMPTS.C1;
   function outputBox(box, onDone) {
     const [es, ar] = byDay(PROMPTS[lv()], "out").split("|");
-    box.innerHTML = `<div class="card lx-ex"><p class="lx-q">أجب بالإسبانية في 3 إلى 6 جمل. تكلّم أوّلًا بصوت مسموع، ثم اكتب ما قلت أو أملِه بالميكروفون.</p>
+    box.innerHTML = `<div class="card lx-ex"><p class="lx-q">أجب بالإسبانية في 3 إلى 6 جمل. تكلّم أوّلًا بصوت مسموع، ثم اكتب ما قلت${SR ? " أو أملِه بالميكروفون" : ""}.</p>
       <p class="lx-es" lang="es" dir="ltr">${esc(es)} ${sayBtns(es)}</p><p class="lx-ar small">${esc(ar)}</p>
       <textarea id="mt-out" dir="ltr" lang="es" rows="5" placeholder="Escribe aquí…"></textarea>
       <div class="lx-row">${SR ? `<button type="button" id="mt-dic">🎤 أملِ بصوتك</button>` : ""}<button type="button" class="primary" id="mt-fix">🧑‍🏫 صحّح لي</button><button type="button" id="mt-end">إنهاء الجلسة ✓</button></div><div id="mt-fb"></div></div>`;
@@ -145,9 +145,9 @@
   /* ---------- الجلسة اليومية ---------- */
   const STAGES = [["🔁", "مراجعة"], ["🧩", "قوالب"], ["🎧", "ترديد"], ["✍️", "إملاء"], ["🗣️", "إنتاج"]];
   function sessionView() {
-    return `${topbar("#aprender/metodo", "▶ جلسة اليوم")}<div class="mt-steps" role="list">${STAGES.map(([ic, n], i) => `<span role="listitem" data-st="${i}">${ic} ${n}</span>`).join("")}</div><div id="mt-stage"></div>`;
+    return `${topbar("#aprender/metodo", "▶ جلسة اليوم")}<div class="mt-steps">${STAGES.map(([ic, n], i) => `<button type="button" data-st="${i}" title="انتقل إلى هذه المحطّة">${ic} ${n}</button>`).join("")}</div><div id="mt-stage"></div>`;
   }
-  function bindSession() {
+  function bindSession(start) {
     const box = $("#mt-stage"); const l = lv(); let lastSents = [];
     const mark = i => $$("[data-st]").forEach(s => { const k = +s.dataset.st; s.classList.toggle("mt-on", k === i); s.classList.toggle("mt-ok", k < i); });
     const head = (ic, t, d) => `<div class="card"><h2>${ic} ${t}</h2><p class="muted">${d}</p></div>`;
@@ -165,7 +165,7 @@
       }
       if (i === 1) {
         const topic = byDay(nearLv(L.PHRASES, l), "ph"); const ss = pick(topic.s.map(SNT), 6); lastSents = ss;
-        box.innerHTML = head("🧩", `قوالب جاهزة: ${esc(topic.tar)}`, "عبارات كاملة يقولها الناس كما هي. استمع لكلّ جملة، ثم ردّدها في الفراغ الذي يليها. اضغط 🎤 لتتحقّق من نطقك.")
+        box.innerHTML = head("🧩", `قوالب جاهزة: ${esc(topic.tar)}`, `عبارات كاملة يقولها الناس كما هي. استمع لكلّ جملة، ثم ردّدها في الفراغ الذي يليها.${SR ? " اضغط 🎤 لتتحقّق من نطقك." : ""}`)
           + `<div class="card lx-row"><button type="button" class="primary" id="mt-play">▶ استمع وردّد</button><button type="button" id="mt-slow">🐢 ببطء</button></div><div class="card" id="mt-lines">${ss.map((s, k) => `<div class="lx-sent mt-line" data-li="${k}"><p class="lx-es" lang="es" dir="ltr">${esc(s.es)} ${sayBtns(s.es, SR ? `<button type="button" class="lx-ic" data-rep="${esc(s.es)}" title="انطقها">🎤</button>` : "")}</p>${tr(s.es)}<p class="lx-ar small">${esc(s.ar)}</p><span class="mt-turn small muted"></span><span class="lx-srz"></span></div>`).join("")}</div>`
           + `<div class="lx-row"><button type="button" id="mt-srs">🧠 أضفها إلى المراجعة</button></div>${next(2)}`;
         const rows = $$("#mt-lines .mt-line"); $("#mt-play").onclick = () => shadow(ss, rows); $("#mt-slow").onclick = () => shadow(ss, rows, { slow: true });
@@ -182,7 +182,7 @@
         $("#mt-ar").onchange = e => $$("#mt-lines .lx-ar").forEach(x => x.hidden = e.target.checked); hook();
       }
       if (i === 3) {
-        const list = pick(lastSents.filter(s => s.es.split(" ").length <= 12), 4).map(s => ({ type: "dict", es: s.es, ar: s.ar }));
+        const pool = lastSents.length ? lastSents : byDay(nearLv(L.PHRASES, l), "ph").s.map(SNT); const list = pick(pool.filter(s => s.es.split(" ").length <= 12), 4).map(s => ({ type: "dict", es: s.es, ar: s.ar }));
         box.innerHTML = head("✍️", "إملاء", "استمع واكتب ما تسمعه. هذه جمل مرّت بك قبل قليل، فالإملاء هنا يثبّتها ويكشف ما لم تلتقطه أذنك.") + `<div id="mt-d"></div>`;
         if (!list.length) { $("#mt-d").innerHTML = next(4); return hook(); }
         runEx($("#mt-d"), list, (ok, n) => { $("#mt-d").innerHTML = `<div class="lx-fb ${ok >= n / 2 ? "ok" : "no"}"><b>${ok} من ${n}</b></div>${next(4)}`; hook(); });
@@ -197,14 +197,15 @@
       $$("[data-st]").forEach(s => { s.classList.remove("mt-on"); s.classList.add("mt-ok"); });
       box.innerHTML = `<div class="card lx-result"><div class="lx-em lx-pop">🏆</div><h2>أتممت جلسة اليوم!</h2><p>${first ? "+25 نقطة. " : ""}عدد جلساتك: ${Object.keys(m.days).length}. نلقاك غدًا إن شاء الله؛ الاستمرار هو السرّ.</p><div class="lx-row"><a class="btn primary" href="#aprender">العودة إلى الدورة</a><a class="btn" href="#aprender/metodo/sombra">🎧 ترديد إضافي</a></div></div>`;
     }
-    stage(0);
+    $$("[data-st]").forEach(b => b.onclick = () => { shadowTok++; R.TTS.stop(true); stage(+b.dataset.st); });
+    stage(Math.min(4, Math.max(0, +start || 0)));
     addEventListener("hashchange", () => { shadowTok++; }, { once: true });
   }
 
   L.EXT = L.EXT || {};
   L.EXT.metodo = (id, arg) => {
     const [, sub, x] = String(arg || "").split("/");
-    if (sub === "sesion") return { html: sessionView(), bind: bindSession };
+    if (sub === "sesion") return { html: sessionView(), bind: () => bindSession(x) };
     if (sub === "sombra") return { html: shadowView(x), bind: () => bindShadow(x) };
     if (sub === "tarjetas") return { html: cardsView(), bind: bindCards };
     return { html: guide(), bind: () => { } };

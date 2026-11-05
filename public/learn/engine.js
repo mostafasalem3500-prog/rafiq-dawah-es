@@ -42,7 +42,9 @@
     list(texts) { return R.TTS.seq(texts.map(t => ({ text: t }))); },
     seq(lines, onLine) { const v = R.TTS.nv("es"), p = R.TTS.partner(v); return R.TTS.seq(lines.map(l => ({ text: l.es, voice: l.who === "B" ? p : v })), onLine); }
   };
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  /* الميكروفون (التعرّف على الكلام) موقوف مؤقتًا: لا يعمل بثبات على آيفون والمتصفحات داخل التطبيقات. لإعادته: MIC_ON = true */
+  const MIC_ON = false;
+  const SR = MIC_ON ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
   function hear() {
     return new Promise((res, rej) => {
       if (!SR) return rej(new Error("unsupported"));
@@ -211,7 +213,7 @@
     const go = k => {
       $$("[data-step]").forEach(b => b.setAttribute("aria-selected", b.dataset.step === k)); R.TTS.stop(true);
       const nextBtn = n => `<div class="lx-row"><button type="button" class="primary lx-big" data-go="${n}">التالي ←</button></div>`;
-      if (k === "words") body.innerHTML = `<div class="lx-row"><button type="button" id="lx-all">▶ استمع لكل الكلمات</button><label class="small"><input type="checkbox" id="lx-trc"${P.tr ? " checked" : ""}> النطق بالحروف العربية</label></div><div class="lx-words">${ws.map(w => `<div class="lx-word card" data-say="${esc(w.es)}" tabindex="0" role="button"><span class="lx-em">${w.em}</span><b lang="es" dir="ltr">${esc(w.es)}</b>${tr(w.es)}<span class="lx-ar">${esc(w.ar)}</span><span class="lx-row"><button type="button" class="lx-ic" data-say="${esc(w.es)}" data-slow="1">🐢</button>${SR ? `<button type="button" class="lx-ic" data-rep="${esc(w.es)}" title="كرّر وتحقّق من نطقك">🎤</button>` : ""}</span><span class="lx-srz"></span></div>`).join("")}</div>${nextBtn("grammar")}`;
+      if (k === "words") body.innerHTML = `<div class="lx-row"><button type="button" id="lx-all">▶ استمع لكل الكلمات</button><label class="small"><input type="checkbox" id="lx-trc"${P.tr ? " checked" : ""}> النطق بالحروف العربية</label></div><div class="lx-words">${ws.map(w => `<div class="lx-word card" data-say="${esc(w.es)}" tabindex="0" role="button"><span class="lx-em">${w.em}</span><b lang="es" dir="ltr">${esc(w.es)}</b>${tr(w.es)}<span class="lx-ar">${esc(w.ar)}</span><span class="lx-row"><button type="button" class="lx-ic lx-play" data-say="${esc(w.es)}" aria-label="استمع للكلمة" title="استمع">🔊</button><button type="button" class="lx-ic" data-say="${esc(w.es)}" data-slow="1" aria-label="استمع ببطء" title="ببطء">🐢</button>${SR ? `<button type="button" class="lx-ic" data-rep="${esc(w.es)}" title="كرّر وتحقّق من نطقك">🎤</button>` : ""}</span><span class="lx-srz"></span></div>`).join("")}</div>${nextBtn("grammar")}`;
       if (k === "grammar") body.innerHTML = `<div class="card"><h3>${esc(u.g.t)}</h3><ul class="steps">${u.g.b.map(b => `<li>${esc(b)}</li>`).join("")}</ul><h4>أمثلة</h4>${u.g.ex.map(SNT).map(e => `<div class="lx-sent"><p class="lx-es" lang="es" dir="ltr">${esc(e.es)} ${sayBtns(e.es)}</p>${tr(e.es)}<p class="lx-ar">${esc(e.ar)}</p></div>`).join("")}</div>${u.tip ? `<p class="notice small">💡 ${esc(u.tip)}</p>` : ""}${nextBtn("sentences")}`;
       if (k === "sentences") body.innerHTML = `<div class="card">${ss.map(e => `<div class="lx-sent"><p class="lx-es" lang="es" dir="ltr">${esc(e.es)} ${sayBtns(e.es, SR ? `<button type="button" class="lx-ic" data-rep="${esc(e.es)}">🎤</button>` : "")}</p>${tr(e.es)}<p class="lx-ar">${esc(e.ar)}</p><span class="lx-srz"></span></div>`).join("")}</div>${nextBtn("dialogue")}`;
       if (k === "dialogue") { body.innerHTML = `<div class="lx-row"><button type="button" id="lx-play">▶ استمع للحوار</button><label class="small"><input type="checkbox" id="lx-hidear"> أخفِ الترجمة</label></div><div class="lx-dlg card">${ds.map((l, i) => `<div class="bubble ${l.who === "A" ? "in" : "da"}" data-li="${i}"><p lang="es" dir="ltr" class="lx-es">${esc(l.es)} <button type="button" class="lx-ic" data-say="${esc(l.es)}">🔊</button></p>${tr(l.es)}<p class="lx-ar small">${esc(l.ar)}</p></div>`).join("")}</div>${nextBtn("practice")}`;
@@ -253,7 +255,7 @@
   /* ---------- المحادثات ---------- */
   function convList() {
     const units = L.UNITS.map(u => ({ id: "u-" + u.id, lv: u.lv, ic: u.ic, tar: u.tar, t: u.t }));
-    return `${topbar("#aprender", "💬 محادثات يومية")}<p class="muted">استمع للحوار بصوتين، ثم العب دور أحد الطرفين: تختفي جملك فتقولها بنفسك، ويتحقق الميكروفون من نطقك.</p>
+    return `${topbar("#aprender", "💬 محادثات يومية")}<p class="muted">استمع للحوار بصوتين، ثم العب دور أحد الطرفين: تختفي جملك فتقولها بنفسك بصوت مسموع${SR ? "، ويتحقق الميكروفون من نطقك" : ""}.</p>
       <h2>مواقف الحياة اليومية</h2><div class="lx-units">${L.CONV.map(c => `<a class="lx-unit card lift${P.convs[c.id] ? " done" : ""}" href="#aprender/conv/${c.id}"><span class="lx-uic">${c.ic}</span><span><b>${esc(c.tar)}</b><br><bdi class="small muted" lang="es">${esc(c.t)}</bdi></span><span class="lx-lv">${c.lv}</span></a>`).join("")}</div>
       ${L.ISLAM_DLG.length ? `<h2>حوارات دعوية</h2><div class="lx-units">${L.ISLAM_DLG.map(c => `<a class="lx-unit card lift${P.convs[c.id] ? " done" : ""}" href="#aprender/conv/${c.id}"><span class="lx-uic">${c.ic}</span><span><b>${esc(c.tar)}</b><br><bdi class="small muted" lang="es">${esc(c.t)}</bdi></span><span class="lx-lv">${c.lv}</span></a>`).join("")}</div>` : ""}
       <h2>حوارات الدروس</h2><div class="lx-units">${units.map(c => `<a class="lx-unit card lift" href="#aprender/conv/${c.id}"><span class="lx-uic">${c.ic}</span><span><b>${esc(c.tar)}</b><br><bdi class="small muted" lang="es">${esc(c.t)}</bdi></span><span class="lx-lv">${c.lv}</span></a>`).join("")}</div>`;
@@ -301,7 +303,7 @@
   function skillsView() {
     return `${topbar("#aprender", "🎯 المهارات الأربع")}<div class="lx-tiles">
       <button type="button" class="lx-tile card lift" data-sk="escuchar"><span class="lx-tic">👂</span><b>الاستماع (إملاء)</b><span class="muted small">استمع لجملة واكتبها</span></button>
-      <button type="button" class="lx-tile card lift" data-sk="hablar"><span class="lx-tic">🗣️</span><b>التحدث والنطق</b><span class="muted small">${SR ? "انطق والميكروفون يقيّم" : "يتطلب Chrome أو Edge"}</span></button>
+      <button type="button" class="lx-tile card lift" data-sk="hablar"><span class="lx-tic">🗣️</span><b>التحدث والنطق</b><span class="muted small">${SR ? "انطق والميكروفون يقيّم" : "رتّب الجملة ثم انطقها بصوت مسموع"}</span></button>
       <button type="button" class="lx-tile card lift" data-sk="escribir"><span class="lx-tic">✍️</span><b>الكتابة</b><span class="muted small">ترجم من العربية إلى الإسبانية</span></button>
       <a class="lx-tile card lift" href="#aprender/leer"><span class="lx-tic">📖</span><b>القراءة</b><span class="muted small">${L.READ.length} نصوص بأسئلة فهم</span></a></div>
       <div class="card"><label>المستوى: <select id="sk-lv">${["A1", "A2", "B1", "B2", "C1", "C2", "DAWAH"].map(l => `<option${l === (P.level || "A1") ? " selected" : ""}>${l}</option>`).join("")}</select></label></div><div id="sk-run"></div>`;
@@ -345,7 +347,7 @@
   }
   function bindKids(arg) {
     if (!arg) return; const u = L.KIDS.find(k => k.id === arg); const ws = u.w.map(W); const box = $("#kd-box");
-    const learn = () => { box.innerHTML = `<div class="lx-kgrid">${ws.map(w => `<button type="button" class="lx-kcard" data-say="${esc(w.es)}"><span>${w.em}</span><b dir="ltr">${esc(w.es)}</b><small>${esc(w.ar)}</small></button>`).join("")}</div>`; };
+    const learn = () => { box.innerHTML = `<div class="lx-kgrid">${ws.map(w => `<button type="button" class="lx-kcard" data-say="${esc(w.es)}" aria-label="استمع: ${esc(w.es)}"><span>${w.em}</span><b dir="ltr">${esc(w.es)}</b><small>${esc(w.ar)}</small><i class="lx-kplay" aria-hidden="true">🔊</i></button>`).join("")}</div>`; };
     const play = () => {
       let round = 0, score = 0; const order = shuffle(ws).slice(0, 8);
       const next = () => {
@@ -429,7 +431,7 @@
   function srsAddList(items, src) { let n = 0; items.forEach(x => { if (!P.srs[x.es]) { P.srs[x.es] = { b: 0, d: today(), ar: x.ar, em: x.em || "", u: src }; n++; } }); save(); toast(n ? `أُضيف ${n} إلى المراجعة الذكية` : "موجودة في المراجعة من قبل"); }
   const lvOrder = ["A1", "A2", "B1", "B2", "C1", "C2"];
   const sentRow = e => `<div class="lx-sent"><p class="lx-es" lang="es" dir="ltr">${esc(e.es)} ${sayBtns(e.es, SR ? `<button type="button" class="lx-ic" data-rep="${esc(e.es)}" title="انطقها">🎤</button>` : "")}<button type="button" class="lx-ic" data-copy="${esc(e.es)}" title="نسخ">📋</button></p>${tr(e.es)}<p class="lx-ar">${esc(e.ar)}</p><span class="lx-srz"></span></div>`;
-  const wordCard = w => `<div class="lx-word card" data-say="${esc(w.es)}" tabindex="0" role="button">${w.em ? `<span class="lx-em">${w.em}</span>` : ""}<b lang="es" dir="ltr">${esc(w.es)}</b>${tr(w.es)}<span class="lx-ar">${esc(w.ar)}</span><span class="lx-row"><button type="button" class="lx-ic" data-say="${esc(w.es)}" data-slow="1">🐢</button>${SR ? `<button type="button" class="lx-ic" data-rep="${esc(w.es)}">🎤</button>` : ""}</span><span class="lx-srz"></span></div>`;
+  const wordCard = w => `<div class="lx-word card" data-say="${esc(w.es)}" tabindex="0" role="button">${w.em ? `<span class="lx-em">${w.em}</span>` : ""}<b lang="es" dir="ltr">${esc(w.es)}</b>${tr(w.es)}<span class="lx-ar">${esc(w.ar)}</span><span class="lx-row"><button type="button" class="lx-ic lx-play" data-say="${esc(w.es)}" aria-label="استمع للكلمة" title="استمع">🔊</button><button type="button" class="lx-ic" data-say="${esc(w.es)}" data-slow="1" aria-label="استمع ببطء" title="ببطء">🐢</button>${SR ? `<button type="button" class="lx-ic" data-rep="${esc(w.es)}">🎤</button>` : ""}</span><span class="lx-srz"></span></div>`;
   function bindCommon(box) {
     box.addEventListener("click", async e => {
       const rp = e.target.closest("[data-rep]"); if (rp) { e.stopPropagation(); const host = rp.closest(".lx-word, .lx-sent"); const s = await checkSpeech(rp.dataset.rep, rp, host.querySelector(".lx-srz")); rp.textContent = "🎤"; if (s >= 0.7) addXP(2); return; }
