@@ -41,8 +41,9 @@
 
   /* ---------- TTS: natural (neural) voices from the server, browser voices as fallback ---------- */
   const NV = {
-    es: [["es-kore", "كوري — إسبانيا", "F"], ["es-puck", "بَك — إسبانيا", "M"], ["es-sulafat", "سولافات — إسبانيا (دافئ)", "F"], ["es-iapetus", "إيابيتوس — إسبانيا (واضح)", "M"], ["mx-aoede", "إيودي — المكسيك", "F"], ["mx-charon", "كارون — المكسيك", "M"], ["la-leda", "ليدا — لاتين أمريكا (شابة)", "F"], ["la-achird", "أشيرد — لاتين أمريكا (ودود)", "M"], ["la-vindemiatrix", "فينديمياتريكس — لاتين أمريكا (هادئ)", "F"], ["la-orus", "أوروس — لاتين أمريكا (رصين)", "M"]],
-    ar: [["ar-charon", "كارون — عربي فصيح", "M"], ["ar-kore", "كوري — عربي فصيح", "F"], ["ar-sadaltager", "سعد — عربي فصيح", "M"]]
+    es: [["es-kore", "كوري — إسبانيا", "F"], ["es-puck", "بَك — إسبانيا", "M"], ["es-sulafat", "سولافات — إسبانيا (دافئ)", "F"], ["es-iapetus", "إيابيتوس — إسبانيا (واضح)", "M"], ["mx-aoede", "إيودي — المكسيك", "F"], ["mx-charon", "كارون — المكسيك", "M"], ["la-leda", "ليدا — لاتين أمريكا (شابة)", "F"], ["la-achird", "أشيرد — لاتين أمريكا (ودود)", "M"], ["la-vindemiatrix", "فينديمياتريكس — لاتين أمريكا (هادئ)", "F"], ["la-orus", "أوروس — لاتين أمريكا (رصين)", "M"],
+      ["os-es-dora", "دورا — مفتوح المصدر، بلا حدود", "F"], ["os-es-alex", "أليكس — مفتوح المصدر، بلا حدود", "M"], ["os-es-santa", "سانتا — مفتوح المصدر، بلا حدود", "M"]],
+    ar: [["ar-charon", "كارون — عربي فصيح", "M"], ["ar-kore", "كوري — عربي فصيح", "F"], ["ar-sadaltager", "سعد — عربي فصيح", "M"], ["os-ar-kareem", "كريم — مفتوح المصدر، بلا حدود", "M"]]
   };
   const TTS = {
     ok: "speechSynthesis" in window, voices: [], paused: false, tok: 0, au: new Audio(), down: false, mode: "",
@@ -456,7 +457,7 @@
       <div class="field"><span class="small" style="font-weight:700">لهجة سريعة</span><div class="chips" id="v-dial"></div></div>
       <div class="field"><label for="v-pitch">طبقة الصوت</label><input type="range" id="v-pitch" min="0.7" max="1.3" step="0.05" value="${S.pitch}"></div>
       <div class="field"><label for="v-ar">صوت المتصفح العربي</label><select id="v-ar"></select></div></details>
-      <p class="muted small" id="v-note">كل الأصوات طبيعية من نماذج Google Gemini الصوتية (لهجات إسبانيا والمكسيك وأمريكا اللاتينية والعربية الفصحى)، تُولَّد على الخادم مرة لكل جملة ثم تُحفظ فتعمل فورًا بعد ذلك. ألغينا أصوات المتصفح الآلية؛ وإن انشغلت الخدمة لحظات بسبب حدّ الخطة المجانية ينتظر المشغّل ثم يُكمل تلقائيًّا.</p></div></div>
+      <p class="muted small" id="v-note">الأصوات الأساسية من نماذج Google Gemini الصوتية (لهجات إسبانيا والمكسيك وأمريكا اللاتينية والعربية الفصحى)، تُولَّد على الخادم مرة لكل جملة ثم تُحفظ فتعمل فورًا بعد ذلك. وإن انشغلت Gemini أو نفدت حصتها يُكمل الموقع تلقائيًّا بأصوات مفتوحة المصدر تعمل على خادمنا (Kokoro للإسبانية، وPiper للعربية بعد تشكيل النص)، ويمكنك اختيارها مباشرة: «مفتوح المصدر، بلا حدود». آيات القرآن تُسمع دائمًا من القراء لا من صوت آلي.</p></div></div>
     <div class="card"><h3>عبارات يحتاجها الداعية</h3>${PHRASES.map(p => { const k = reg({ es: p[0], ar: p[1] }); return `<div class="phrase"><div><p class="es-text" lang="es">${esc(p[0])}</p><p class="small muted">${esc(p[1])}</p></div><div class="actions"><button type="button" data-act="say" data-k="${k}" aria-label="استمع">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ</button></div></div>`; }).join("")}</div>`;
   function bindPron() {
     const fillVoices = () => {

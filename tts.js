@@ -1,6 +1,6 @@
 /* Natural voices for رفيق الداعية via the official Gemini text-to-speech API (same GEMINI_API_KEY).
- * Each clip is synthesized once and cached (memory + disk). If the key is missing or the quota is
- * exhausted, the browser falls back to its own voices automatically. */
+ * Each clip is synthesized once and cached (memory + disk). If the key is missing, the service is busy or
+ * the quota/budget is exhausted, the open-source voices in tts-open.js take over on the server. */
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -111,33 +111,71 @@ async function cached(k) {
   try { const b = await fs.promises.readFile(path.join(DIR, k + ".wav")); remember(k, b); return b; } catch (e) { return null; }
 }
 
+/* ترتيب طبقات الصوت لكل مقطع:
+ *   1) المخزَّن (ذاكرة/قرص) — فوري ومجاني
+ *   2) Gemini TTS — أجود الأصوات (الأساسي)
+ *   3) الأصوات مفتوحة المصدر على الخادم (Kokoro للإسبانية، Piper للعربية بعد تشكيلها بـ DeepSeek/Gemini)
+ *      — حين يغيب المفتاح أو تنشغل الخدمة أو تنفد الحصة أو الميزانية، أو إذا اختار المستخدم صوتًا مفتوحًا
+ *   4) يعيد المتصفح المحاولة تلقائيًّا (playSafe في app.js)
+ * DeepSeek نصّي فقط لا ينطق؛ دوره هنا تشكيل العربية قبل الصوت المفتوح، وهو احتياطي Gemini في الترجمة والمعلّم. */
+const OPEN = require("./tts-open");
+const openHits = new Map();
+const ipOf = req => (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
+function underLimit(map, ip, max) {
+  const now = Date.now(); const h = (map.get(ip) || []).filter(t => now - t < 60000);
+  if (h.length >= max) return false; h.push(now); map.set(ip, h); if (map.size > 5000) map.clear(); return true;
+}
+const hashKey = s => crypto.createHash("sha1").update(s).digest("hex");
+
 let status = { ok: null, err: "" }; let coolUntil = 0;
-function mount(app) {
-  app.get("/api/tts/voices", (req, res) => res.json({ enabled: !!KEY, ok: status.ok, cooling: Date.now() < coolUntil, voices: VOICES.es.concat(VOICES.ar).map(v => v.slice(0, 3)) }));
+function mount(app, o = {}) {
+  const diacritize = o.diacritize || null;
+  if (!KEY) OPEN.warm();
+  app.get("/api/tts/voices", (req, res) => res.json({
+    enabled: !!KEY || OPEN.available("es") || OPEN.available("ar"), ok: status.ok, cooling: Date.now() < coolUntil,
+    order: ["cache", "gemini", "open-source", "retry"], open: OPEN.status(),
+    voices: VOICES.es.concat(VOICES.ar).map(v => v.slice(0, 3)), openVoices: OPEN.VOICES.es.concat(OPEN.VOICES.ar).map(v => v.slice(0, 3))
+  }));
   app.get("/api/tts", async (req, res) => {
     const text = String(req.query.t || "").replace(/\s+/g, " ").trim();
-    const v = BYID.get(String(req.query.v || ""));
+    const id = String(req.query.v || ""); const gv = BYID.get(id), chosenOpen = OPEN.BYID.get(id);
     if (!text || text.length > 600) return res.status(400).json({ error: "bad_text" });
-    if (!v) return res.status(400).json({ error: "bad_voice" });
-    const k = crypto.createHash("sha1").update(`p3|${v[0]}|${text}`).digest("hex");
-    const send = b => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("Content-Length", b.length); res.end(b); };
-    const hit = await cached(k); if (hit) return send(hit);
-    if (!KEY) return res.status(503).json({ error: "disabled" });
-    if (Date.now() < coolUntil) return res.status(503).json({ error: "quota_cooldown" });
-    if (!spend.allowed("tts")) return res.status(503).json({ error: "budget" });
-    if (!inflight.has(k)) {
-      const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
-      const now = Date.now(); const h = (ipHits.get(ip) || []).filter(t => now - t < 60000);
-      if (h.length >= 40) return res.status(429).json({ error: "rate" });
-      h.push(now); ipHits.set(ip, h); if (ipHits.size > 5000) ipHits.clear();
-      const d = new Date().toISOString().slice(0, 10); if (day.d !== d) day = { d, n: 0 };
-      if (day.n >= DAILY) return res.status(429).json({ error: "daily" });
-      day.n++;
-      inflight.set(k, synth(text, v).then(b => { remember(k, b); fs.promises.writeFile(path.join(DIR, k + ".wav"), b).catch(() => { }); status = { ok: true, err: "" }; return b; })
-        .catch(e => { status = { ok: false, err: String(e.message || e) }; if (/quota|rate|429/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } console.error("tts", String(e.message).slice(0, 200)); throw e; })
-        .finally(() => inflight.delete(k)));
+    if (!gv && !chosenOpen) return res.status(400).json({ error: "bad_voice" });
+    const send = (b, engine) => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("X-TTS-Engine", engine); res.setHeader("Content-Length", b.length); res.end(b); };
+    const ip = ipOf(req);
+
+    /* ---- الطبقتان 1 و2: Gemini ---- */
+    let why = "open_voice";
+    if (gv) {
+      const k = hashKey(`p3|${gv[0]}|${text}`);
+      const hit = await cached(k); if (hit) return send(hit, "gemini");
+      why = !KEY ? "disabled" : Date.now() < coolUntil ? "quota_cooldown" : !spend.allowed("tts") ? "budget" : null;
+      if (!why && !inflight.has(k)) {
+        if (!underLimit(ipHits, ip, 40)) return res.status(429).json({ error: "rate" });
+        const d = new Date().toISOString().slice(0, 10); if (day.d !== d) day = { d, n: 0 };
+        if (day.n >= DAILY) why = "daily";
+        else {
+          day.n++;
+          inflight.set(k, synth(text, gv).then(b => { remember(k, b); fs.promises.writeFile(path.join(DIR, k + ".wav"), b).catch(() => { }); status = { ok: true, err: "" }; return b; })
+            .catch(e => { status = { ok: false, err: String(e.message || e) }; if (/quota|rate|429|exhaust/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } console.error("tts", String(e.message).slice(0, 200)); throw e; })
+            .finally(() => inflight.delete(k)));
+        }
+      }
+      if (!why) { try { return send(await inflight.get(k), "gemini"); } catch (e) { why = "gemini_error"; } }
     }
-    try { send(await inflight.get(k)); } catch (e) { res.status(502).json({ error: "tts_unavailable", message: String(e.message || e) }); }
+
+    /* ---- الطبقة 3: الأصوات مفتوحة المصدر ---- */
+    const ov = chosenOpen || OPEN.fallbackFor(gv); const lang = OPEN.langOf(ov[0]);
+    const ok = hashKey(`o1|${ov[0]}|${text}`);
+    const hit = await cached(ok); if (hit) return send(hit, "open");
+    if (!OPEN.available(lang)) return res.status(503).json({ error: why === "open_voice" ? "open_unavailable" : why, open: OPEN.status()[lang] });
+    if (!inflight.has(ok)) {
+      if (!underLimit(openHits, ip, 30)) return res.status(429).json({ error: "rate" });
+      inflight.set(ok, OPEN.synth(text, ov, { diacritize }).then(r => { const b = wav(r.pcm, r.rate); b.engine = r.engine; remember(ok, b); fs.promises.writeFile(path.join(DIR, ok + ".wav"), b).catch(() => { }); return b; })
+        .finally(() => inflight.delete(ok)));
+    }
+    try { const b = await inflight.get(ok); send(b, b.engine || "open"); }
+    catch (e) { const code = e.code === "quran" ? 422 : e.code === "busy" ? 503 : 502; console.error("open tts", e.code || "", String(e.message).slice(0, 160)); res.status(code).json({ error: e.code || "tts_unavailable", message: String(e.message || e) }); }
   });
 }
 module.exports = { mount, VOICES, clean };

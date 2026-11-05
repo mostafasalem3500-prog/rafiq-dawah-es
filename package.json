@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "check": "node scripts/check-data.js && node scripts/check-learn.js"
+    "check": "node scripts/check-data.js && node scripts/check-learn.js",
+    "postinstall": "node scripts/fetch-voices.js",
+    "fetch-voices": "node scripts/fetch-voices.js"
   },
   "engines": {
     "node": ">=20"
@@ -15,6 +17,9 @@
   "dependencies": {
     "compression": "^1.8.2",
     "express": "4.21.2",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "sherpa-onnx-node": "1.12.40",
+    "tar": "^7.5.22",
+    "unbzip2-stream": "^1.4.3"
   }
 }
