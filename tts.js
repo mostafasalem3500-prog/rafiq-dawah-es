@@ -21,6 +21,12 @@ async function discoverTts() {
   } catch (e) { }
 }
 const DAILY = Number(process.env.TTS_DAILY_LIMIT || 2000);
+/* paid backup: the same Gemini TTS voices through OpenRouter (prepaid balance, shared monthly cap in spend.js) */
+const OR_KEY = (process.env.OPENROUTER_API_KEY || "").trim();
+const OR_TTS = (process.env.OPENROUTER_TTS_MODELS || "google/gemini-3.8-flash-lite-tts,google/gemini-3.8-flash-tts").split(",").map(x => x.trim()).filter(Boolean);
+/* USD per 1M tokens [text in, audio out] (openrouter.ai/api/v1/models, read 5 Nov 2026); audio ≈ 25 tokens/s */
+const orPrice = m => /lite/.test(m) ? [0.5, 6] : [0.5, 9];
+const orReady = () => !!OR_KEY && spend.orAllowed();
 
 /* presets: [id, Arabic label, gender, Gemini voice, accent instruction] */
 const ACC = { es: "with a Spain Spanish accent", mx: "with a Mexican Spanish accent", la: "with a neutral Latin American Spanish accent", ar: "" };
@@ -79,18 +85,45 @@ function wav(pcm, rate = 24000) {
 
 /* a clip much longer than the text means the model also read the instruction aloud */
 const tooLong = (buf, text) => { const sec = (buf.length - 44) / (24000 * 2); return sec > 2.5 + text.length / 7; };
-async function synth(text, v) {
+async function synth(text, v, useGemini = true) {
   const lang = v[0].startsWith("ar") ? "ar" : "es";
   const styled = lang === "es" ? `Say in a natural, warm, unhurried voice ${v[4]}: ${text}` : `Say in a calm, clear Modern Standard Arabic voice: ${text}`;
-  let lastErr; await discoverTts();
-  for (const model of MODELS) {
-    try {
-      let b = await synthOnce(model, styled, v);
-      if (tooLong(b, text)) { b = await synthOnce(model, text, v); if (tooLong(b, text)) throw new Error("audio length check failed"); }
-      return b;
-    } catch (e) { lastErr = e; if (!/demand|overload|unavailable|429|500|503|not found|timeout|aborted|length check/i.test(String(e.message))) break; }
+  const tryModels = async (models, once) => {
+    let lastErr;
+    for (const model of models) {
+      try {
+        let b = await once(model, styled, v);
+        if (tooLong(b, text)) { b = await once(model, text, v); if (tooLong(b, text)) throw new Error("audio length check failed"); }
+        return { b, model };
+      } catch (e) { lastErr = e; if (!/demand|overload|unavailable|429|500|502|503|not found|timeout|aborted|length check|no audio/i.test(String(e.message))) break; }
+    }
+    throw lastErr;
+  };
+  let gErr;
+  if (KEY && useGemini) {
+    await discoverTts();
+    try { return (await tryModels(MODELS, synthOnce)).b; } catch (e) { gErr = e; if (/quota|rate|429|exhaust/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } if (!orReady()) throw e; console.error("gemini tts failed, using openrouter:", String(e.message).slice(0, 120)); }
   }
-  throw lastErr;
+  if (orReady()) { const r = await tryModels(OR_TTS, synthOpenRouter); orStatus = { ok: true, err: "", model: r.model }; return r.b; }
+  throw gErr || new Error("no tts engine");
+}
+let orStatus = { ok: null, err: "", model: "" };
+async function synthOpenRouter(model, prompt, v) {
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 40000);
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/audio/speech", {
+      method: "POST", signal: ctl.signal,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OR_KEY}`, "HTTP-Referer": "https://web-production-d19218.up.railway.app", "X-Title": "Rafiq al-Da'i" },
+      body: JSON.stringify({ model, input: prompt, voice: v[3], response_format: "pcm" })
+    });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); const e = new Error((j.error && j.error.message) || `OpenRouter TTS HTTP ${r.status}`); orStatus = { ok: false, err: String(e.message).slice(0, 160), model }; throw e; }
+    const pcm = Buffer.from(await r.arrayBuffer());
+    if (pcm.length < 2000) throw new Error("no audio returned");
+    const ct = r.headers.get("content-type") || ""; const m = /rate=(\d+)/.exec(ct); const rate = m ? +m[1] : 24000;
+    const [pi, po] = orPrice(model); spend.recordOR(((prompt.length / 3) * pi + (pcm.length / 2 / rate) * 25 * po) / 1e6);
+    return wav(pcm, rate);
+  } catch (e) { if (e.name === "AbortError") throw new Error("OpenRouter TTS timeout"); throw e; }
+  finally { clearTimeout(to); }
 }
 async function synthOnce(model, prompt, v) {
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
@@ -120,8 +153,16 @@ async function cached(k) {
 }
 
 let status = { ok: null, err: "" }; let coolUntil = 0;
+/* one tiny startup check of the paid voice path, so the logs show whether OpenRouter speech works */
+if (OR_KEY && process.env.NODE_ENV !== "test") setTimeout(async () => {
+  const t0 = Date.now();
+  for (const model of OR_TTS) {
+    try { const b = await synthOpenRouter(model, "Hola, bienvenido.", BYID.get("es-kore")); orStatus = { ok: true, err: "", model }; console.log(`openrouter tts selftest OK (${model}) in ${Date.now() - t0}ms, ${((b.length - 44) / 48000).toFixed(2)}s audio`); return; }
+    catch (e) { console.error("openrouter tts selftest FAILED", model, String(e.message).slice(0, 200)); }
+  }
+}, 6000);
 function mount(app) {
-  app.get("/api/tts/voices", (req, res) => res.json({ enabled: !!KEY, ok: status.ok, cooling: Date.now() < coolUntil, voices: VOICES.es.concat(VOICES.ar).map(v => v.slice(0, 3)) }));
+  app.get("/api/tts/voices", (req, res) => res.json({ enabled: !!KEY || orReady(), ok: status.ok, cooling: Date.now() < coolUntil && !orReady(), engines: { gemini: !!KEY, openrouter: OR_KEY ? (!spend.orAllowed() ? "budget" : orStatus.ok === false ? "error" : "ready") : false }, openrouter: OR_KEY ? { ...orStatus, models: OR_TTS } : null, voices: VOICES.es.concat(VOICES.ar).map(v => v.slice(0, 3)) }));
   app.get("/api/tts", async (req, res) => {
     const text = String(req.query.t || "").replace(/\s+/g, " ").trim();
     const v = BYID.get(String(req.query.v || ""));
@@ -130,8 +171,9 @@ function mount(app) {
     const k = crypto.createHash("sha1").update(`p4|${v[0]}|${text}`).digest("hex");
     const send = b => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("Content-Length", b.length); res.end(b); };
     const hit = await cached(k); if (hit) return send(hit);
-    if (!KEY) return res.status(503).json({ error: "disabled" });
-    if (Date.now() < coolUntil) return res.status(503).json({ error: "quota_cooldown" });
+    if (!KEY && !orReady()) return res.status(503).json({ error: "disabled" });
+    const geminiOk = !!KEY && Date.now() >= coolUntil;
+    if (!geminiOk && !orReady()) return res.status(503).json({ error: "quota_cooldown" });
     if (!spend.allowed("tts")) return res.status(503).json({ error: "budget" });
     if (!inflight.has(k)) {
       const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
@@ -141,7 +183,7 @@ function mount(app) {
       const d = new Date().toISOString().slice(0, 10); if (day.d !== d) day = { d, n: 0 };
       if (day.n >= DAILY) return res.status(429).json({ error: "daily" });
       day.n++;
-      inflight.set(k, synth(text, v).then(b => { remember(k, b); fs.promises.writeFile(path.join(DIR, k + ".wav"), b).catch(() => { }); status = { ok: true, err: "" }; return b; })
+      inflight.set(k, synth(text, v, geminiOk).then(b => { remember(k, b); fs.promises.writeFile(path.join(DIR, k + ".wav"), b).catch(() => { }); status = { ok: true, err: "" }; return b; })
         .catch(e => { status = { ok: false, err: String(e.message || e) }; if (/quota|rate|429/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } console.error("tts", String(e.message).slice(0, 200)); throw e; })
         .finally(() => inflight.delete(k)));
     }
