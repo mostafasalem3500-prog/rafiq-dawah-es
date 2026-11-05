@@ -981,15 +981,50 @@
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
-  const LEARN_V = 6, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "conv-b", "qbank", "exams", "engine", "play"];
+  const LEARN_V = 7, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
-    const files = LEARN_FILES, optional = new Set(["c2", "units-more", "units-more2", "vocab-c", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play"]);
+    const files = LEARN_FILES, optional = new Set(["c2", "units-more", "units-more2", "vocab-c", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play", "phrases-d", "vocab-d", "conv-c", "metodo"]);
     learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=${LEARN_V}`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;
   }
+  /* ---------- قائمة الأصوات بجوار كل زر «استمع» ---------- */
+  const VP = {
+    lang(b) { return b.dataset.act === "say-ar" || b.dataset.vlang === "ar" ? "ar" : "es"; },
+    label(lang) { if (S.engine === "browser") return "صوت المتصفح"; const v = NV[lang].find(x => x[0] === TTS.nv(lang)); return v ? v[1].split(" — ")[0] : "الصوت"; },
+    wants(b) { return !b.dataset.vp && !b.classList.contains("vp-btn") && !b.closest(".vp-menu") && b.id !== "q-playall" && !b.dataset.qplay && /استمع/.test(b.textContent); },
+    scan() {
+      $$("button").forEach(b => { if (!this.wants(b)) return; b.dataset.vp = "1"; const lang = this.lang(b);
+        b.insertAdjacentHTML("afterend", `<button type="button" class="vp-btn" data-vplang="${lang}" aria-haspopup="menu" aria-expanded="false" title="اختر الصوت"><span aria-hidden="true">🎙</span> <span class="vp-name">${esc(this.label(lang))}</span> <span aria-hidden="true">▾</span></button>`); });
+      this.refresh();
+    },
+    refresh() { $$(".vp-btn").forEach(b => { const n = b.querySelector(".vp-name"); const t = this.label(b.dataset.vplang); if (n.textContent !== t) n.textContent = t; }); },
+    close() { const m = $("#vp-menu"); if (m) m.remove(); $$(".vp-btn[aria-expanded=true]").forEach(b => b.setAttribute("aria-expanded", "false")); },
+    open(btn) {
+      if (btn.getAttribute("aria-expanded") === "true") return this.close(); this.close();
+      const lang = btn.dataset.vplang, cur = S.engine === "browser" ? "browser" : TTS.nv(lang);
+      const item = (id, name, sub) => `<button type="button" role="menuitemradio" aria-checked="${id === cur}" data-vpick="${id}"><span>${id === cur ? "✓" : ""}</span><b>${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+      const m = document.createElement("div"); m.id = "vp-menu"; m.className = "vp-menu"; m.setAttribute("role", "menu");
+      m.innerHTML = `<p class="vp-h">${lang === "ar" ? "الأصوات العربية" : "الأصوات الإسبانية"}</p>${NV[lang].map(v => { const [n, d] = v[1].split(" — "); return item(v[0], `${v[2] === "F" ? "👩" : "👨"} ${n}`, d); }).join("")}<hr>${item("browser", "🌐 صوت المتصفح", "يعمل دون إنترنت")}<a class="vp-more" href="#pronunciar">مختبر النطق والمزيد ←</a>`;
+      document.body.appendChild(m); btn.setAttribute("aria-expanded", "true");
+      const r = btn.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+      let left = Math.min(Math.max(8, r.right - w), innerWidth - w - 8), top = r.bottom + 6; if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 6);
+      m.style.left = left + "px"; m.style.top = top + "px"; this.at = Date.now(); (m.querySelector("[aria-checked=true]") || m.querySelector("button")).focus({ preventScroll: true });
+      m.onclick = e => { const it = e.target.closest("[data-vpick]"); if (!it) return; const id = it.dataset.vpick;
+        if (id === "browser") S.engine = "browser"; else { S.engine = "neural"; if (lang === "ar") S.nvAr = id; else S.nvEs = id; }
+        TTS.down = false; TTS.downUntil = 0; saveS(); this.close(); this.refresh();
+        toast(`الصوت: ${this.label(lang)}`); TTS.speak(lang === "ar" ? "السلام عليكم ورحمة الله." : "Hola, ¿qué tal? Encantado de hablar contigo.", lang);
+        document.dispatchEvent(new Event("voice-change")); };
+      m.onkeydown = e => { const its = $$("[data-vpick]", m); const i = its.indexOf(document.activeElement);
+        if (e.key === "Escape") { this.close(); btn.focus(); } else if (e.key === "ArrowDown") { e.preventDefault(); its[(i + 1) % its.length].focus(); } else if (e.key === "ArrowUp") { e.preventDefault(); its[(i - 1 + its.length) % its.length].focus(); } };
+    }
+  };
+  document.addEventListener("click", e => { const b = e.target.closest(".vp-btn"); if (b) { e.preventDefault(); e.stopPropagation(); VP.open(b); return; } if (!e.target.closest("#vp-menu")) VP.close(); }, true);
+  addEventListener("scroll", () => { if (Date.now() - (VP.at || 0) > 400) VP.close(); }, { passive: true }); addEventListener("resize", () => VP.close()); addEventListener("hashchange", () => VP.close());
+  let vpRaf = 0; new MutationObserver(() => { if (!vpRaf) vpRaf = requestAnimationFrame(() => { vpRaf = 0; VP.scan(); }); }).observe(document.body, { childList: true, subtree: true });
+  VP.scan();
   window.RAFIQ = { TTS, NV, toast, copy, esc, head, S, saveS };
 
   /* ---------- router ---------- */

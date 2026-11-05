@@ -1,7 +1,7 @@
 // Validates the Spanish course data and the conjugation engine.
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const ctx = { console }; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
-for (const f of ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "conv-b", "qbank", "exams"]) if (fs.existsSync(path.join(__dirname, "..", "public", "learn", f + ".js"))) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "public", "learn", f + ".js"), "utf8"), ctx);
+for (const f of ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams"]) if (fs.existsSync(path.join(__dirname, "..", "public", "learn", f + ".js"))) vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "public", "learn", f + ".js"), "utf8"), ctx);
 const L = ctx.window.LEARN; const errs = [];
 const ids = new Set(); const LV = ["A1", "A2", "B1", "B2", "C1", "C2", "DAWAH"];
 for (const u of L.UNITS) {

@@ -487,3 +487,31 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
 .visits .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22a06b; margin-inline-end: 4px; vertical-align: middle; animation: vpulse 2s ease-in-out infinite; }
 @keyframes vpulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .visits .dot { animation: none; } }
+
+/* قائمة الأصوات بجوار «استمع» */
+.vp-btn { font-size: .8rem; padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px dashed var(--line); color: var(--muted); white-space: nowrap; min-height: 0; }
+.vp-btn:hover, .vp-btn[aria-expanded=true] { color: var(--ink); border-style: solid; }
+.vp-menu { position: fixed; z-index: 1000; width: min(290px, calc(100vw - 16px)); max-height: min(70vh, 520px); overflow: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.18); padding: 6px; }
+.vp-menu .vp-h { margin: 4px 10px 6px; font-size: .8rem; color: var(--muted); }
+.vp-menu button { display: grid; grid-template-columns: 18px 1fr; align-items: center; gap: 0 6px; width: 100%; text-align: start; background: none; border: 0; border-radius: 10px; padding: 7px 10px; min-height: 0; box-shadow: none; }
+.vp-menu button small { grid-column: 2; color: var(--muted); font-size: .75rem; }
+.vp-menu button:hover, .vp-menu button:focus-visible { background: var(--bg); outline: none; }
+.vp-menu button[aria-checked=true] b { color: var(--green-2); }
+.vp-menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+.vp-menu .vp-more { display: block; padding: 6px 10px 4px; font-size: .8rem; }
+
+/* الطريقة الاحترافية */
+.mt-hero { border-inline-start: 4px solid var(--green-2); }
+.mt-plan { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 0; margin: 10px 0; list-style: none; counter-reset: mt; }
+.mt-plan li { background: var(--green-soft); color: var(--green); border-radius: 999px; padding: 4px 12px; font-size: .9rem; }
+.mt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-block: 12px; }
+.mt-m h3 { margin: 0 0 6px; font-size: 1.05rem; } .mt-m h3 small { font-weight: 400; font-size: .75rem; display: block; }
+.mt-m p { margin: 0 0 10px; font-size: .95rem; }
+.mt-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 10px; }
+.mt-steps span { flex: 0 0 auto; width: auto; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: .88rem; color: var(--muted); background: var(--surface); }
+.mt-steps span.mt-on { border-color: var(--green-2); color: var(--green); background: var(--green-soft); font-weight: 700; }
+.mt-steps span.mt-ok { color: var(--green-2); } .mt-steps span.mt-ok::after { content: " ✓"; }
+.mt-card .lx-ar.big { font-size: 1.5rem; font-weight: 700; margin: 6px 0 10px; }
+.mt-line .mt-turn { display: block; min-height: 1.2em; }
+.mt-line.lx-now .mt-turn { color: var(--green-2); font-weight: 700; }
+#mt-out { width: 100%; }
