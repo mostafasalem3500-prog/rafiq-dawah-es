@@ -41,15 +41,23 @@ function clean(pcm, rate = 24000) {
   if (pcm.length % 2) pcm = pcm.subarray(0, pcm.length - 1);
   const n = pcm.length / 2; if (n < rate / 10) return pcm;
   const x = new Int16Array(n); for (let i = 0; i < n; i++) x[i] = pcm.readInt16LE(i * 2);
-  const F = Math.round(rate / 100), nf = Math.floor(n / F), rms = new Float64Array(nf);
-  for (let f = 0; f < nf; f++) { let e = 0; for (let i = f * F; i < (f + 1) * F; i++) e += x[i] * x[i]; rms[f] = Math.sqrt(e / F); }
+  const F = Math.round(rate / 100), nf = Math.floor(n / F), rms = new Float64Array(nf), zcr = new Float64Array(nf);
+  for (let f = 0; f < nf; f++) { let e = 0, z = 0; for (let i = f * F; i < (f + 1) * F; i++) { e += x[i] * x[i]; if (i && (x[i] >= 0) !== (x[i - 1] >= 0)) z++; } rms[f] = Math.sqrt(e / F); zcr[f] = z / F; }
   const peak = Math.max(...rms); if (!peak) return pcm;
   const thr = Math.max(220, peak * 0.05), voiced = [...rms].map(r => r > thr);
+  /* إطار «تشويش»: عالٍ جدًّا وعريض الطيف (نسبة عبور الصفر مرتفعة) — الكلام العالي حروف علة منخفضة العبور، والصفير (s) منخفض الشدة */
+  const art = [...rms].map((r, f) => r > peak * 0.35 && zcr[f] > 0.12);
   /* المقاطع المنطوقة: ندمج الفجوات القصيرة (< 150ms) داخل الكلام */
   const segs = []; for (let f = 0; f < nf; f++) if (voiced[f]) { const L = segs[segs.length - 1]; if (L && f - L[1] <= 15) L[1] = f; else segs.push([f, f]); }
   if (!segs.length) return pcm;
-  /* أسقط ذيلًا قصيرًا (< 180ms) معزولًا بفجوة ≥ 250ms عن الكلام (نفَس أو تشويش في النهاية) */
-  for (let k = 0; k < 2 && segs.length > 1; k++) { const L = segs[segs.length - 1], P = segs[segs.length - 2]; if (L[1] - L[0] < 18 && L[0] - P[1] >= 35) segs.pop(); else break; }
+  /* نهاية المقطع: أسقط مقطعًا أخيرًا أغلبه تشويش، أو ذيلًا قصيرًا (< 120ms) معزولًا بفجوة ≥ 100ms؛ ثم قصّ إطارات التشويش/الصمت من آخر المقطع المتبقي */
+  let dropped = 0;
+  for (let k = 0; k < 4 && segs.length; k++) {
+    const L = segs[segs.length - 1], len = L[1] - L[0] + 1; let a = 0; for (let f = L[0]; f <= L[1]; f++) if (art[f]) a++;
+    const gap = segs.length > 1 ? L[0] - segs[segs.length - 2][1] : 99;
+    if ((a >= len * 0.4 && segs.length > 1) || (len < 12 && gap >= 10 && segs.length > 1)) { segs.pop(); dropped++; continue; }
+    let e = L[1]; while (e > L[0] && (art[e] || !voiced[e])) e--; if (e < L[1]) dropped++; L[1] = e; break;
+  }
   const s0 = Math.max(0, (segs[0][0] - 6) * F), e0 = Math.min(n, (segs[segs.length - 1][1] + 16) * F);
   const len = e0 - s0, tail = Math.round(rate * 0.08), out = Buffer.alloc((len + tail) * 2);
   const fi = Math.min(len, Math.round(rate * 0.008)), fo = Math.min(len, Math.round(rate * 0.06));
@@ -57,7 +65,7 @@ function clean(pcm, rate = 24000) {
     let g = 1; if (i < fi) g = 0.5 - 0.5 * Math.cos(Math.PI * i / fi); const r = len - 1 - i; if (r < fo) g *= 0.5 - 0.5 * Math.cos(Math.PI * r / fo);
     out.writeInt16LE(Math.round(x[s0 + i] * g), i * 2);
   }
-  if (process.env.NODE_ENV !== "test") console.log(`tts clean: ${(n / rate).toFixed(2)}s -> ${((len + tail) / rate).toFixed(2)}s`);
+  if (process.env.NODE_ENV !== "test") console.log(`tts clean: ${(n / rate).toFixed(2)}s -> ${((len + tail) / rate).toFixed(2)}s${dropped ? " (noise tail removed)" : ""}`);
   return out; // ينتهي بـ 80ms صمت رقمي حتى لا يقطع المشغّل آخر الكلمة
 }
 function wav(pcm, rate = 24000) {
@@ -119,7 +127,7 @@ function mount(app) {
     const v = BYID.get(String(req.query.v || ""));
     if (!text || text.length > 600) return res.status(400).json({ error: "bad_text" });
     if (!v) return res.status(400).json({ error: "bad_voice" });
-    const k = crypto.createHash("sha1").update(`p3|${v[0]}|${text}`).digest("hex");
+    const k = crypto.createHash("sha1").update(`p4|${v[0]}|${text}`).digest("hex");
     const send = b => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=31536000, immutable"); res.setHeader("Content-Length", b.length); res.end(b); };
     const hit = await cached(k); if (hit) return send(hit);
     if (!KEY) return res.status(503).json({ error: "disabled" });

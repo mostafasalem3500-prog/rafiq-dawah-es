@@ -53,26 +53,34 @@
       const load = () => { this.voices = speechSynthesis.getVoices(); document.dispatchEvent(new Event("voices")); };
       load(); speechSynthesis.addEventListener("voiceschanged", load);
     },
-    neural() { return true; },
+    neural() { return S.engine !== "browser" && !this.down && Date.now() > (this.downUntil || 0); },
+    /* ترتيب أصوات المتصفح بالجودة: Natural/Online (Edge) ثم Google (Chrome) ثم Siri/Enhanced ثم البقية؛ وتفضيل es-ES ثم es-MX ثم es-US */
+    score(v, lang) {
+      const n = v.name, l = v.lang.replace("_", "-"); let s = 0;
+      if (/natural|online|neural/i.test(n)) s += 50; if (/google/i.test(n)) s += 40; if (/siri|premium|enhanced/i.test(n)) s += 30; if (/microsoft/i.test(n) && !/natural|online/i.test(n)) s += 10; if (/espeak|robot|compact/i.test(n)) s -= 40;
+      if (lang === "es") { if (/^es-ES/i.test(l)) s += 6; else if (/^es-MX/i.test(l)) s += 5; else if (/^es-US/i.test(l)) s += 4; else if (/^es-419/i.test(l)) s += 3; }
+      else if (/^ar-(SA|EG)/i.test(l)) s += 5;
+      if (!v.localService) s += 3; return s;
+    },
+    quality(v) { return /natural|online|neural|google|siri|premium|enhanced/i.test(v.name) ? "عالية" : /espeak|robot|compact/i.test(v.name) ? "آلية" : "عادية"; },
     nv(lang) { const id = lang === "ar" ? S.nvAr : S.nvEs; return NV[lang].some(v => v[0] === id) ? id : NV[lang][0][0]; },
     partner(id) { const v = NV.es.find(x => x[0] === id) || NV.es[0]; const pre = v[0].split("-")[0]; const same = NV.es.filter(x => x[0].split("-")[0] === pre && x[2] !== v[2]); return (same[0] || NV.es.find(x => x[2] !== v[2]))[0]; },
     list(lang) { return this.voices.filter(v => lang === "es" ? /^es([-_]|$)/i.test(v.lang) : /^ar([-_]|$)/i.test(v.lang)); },
     pick(lang) {
       const list = this.list(lang); const uri = lang === "es" ? S.voice : S.arVoice;
-      const good = v => /natural|neural|online|google|premium|enhanced|siri/i.test(v.name);
-      return list.find(v => v.voiceURI === uri) || list.find(v => good(v) && (lang !== "es" || /es[-_](ES|MX|US)/i.test(v.lang))) || list.find(good) || list.find(v => /es-ES|es_ES/i.test(v.lang) && lang === "es") || list[0] || null;
+      return list.find(v => v.voiceURI === uri) || [...list].sort((a, b) => this.score(b, lang) - this.score(a, lang))[0] || null;
     },
     split(text) {
       const s = String(text).replace(/\s+/g, " ").match(/[^.!?…؟]+[.!?…؟]*["»”)]*\s*/g)?.map(x => x.trim()).filter(Boolean) || [String(text)];
       return s.flatMap(x => x.length <= 280 ? [x] : x.split(/(?<=[,;:،])\s+/).reduce((a, w) => { if (a.length && (a[a.length - 1] + " " + w).length <= 280) a[a.length - 1] += " " + w; else a.push(w); return a; }, []));
     },
-    url(t, v) { return `/api/tts?v=${encodeURIComponent(v)}&r=3&t=${encodeURIComponent(t)}`; },
+    url(t, v) { return `/api/tts?v=${encodeURIComponent(v)}&r=4&t=${encodeURIComponent(t)}`; },
     /* speak(text, lang, onSentence, {voice, rate, quiet}) → Promise that resolves when finished */
     speak(text, lang = "es", onSentence, o = {}) {
       this.stop(true); const my = ++this.tok; const parts = this.split(text); if (!parts.length) return Promise.resolve();
       if (!o.quiet) { $("#player").hidden = false; $("#p-pause").textContent = "⏸"; }
       const rate = o.rate || Number(S.rate) || 0.9;
-      const run = this.playSafe(parts, o.voice || this.nv(lang), rate, onSentence, my);
+      const run = this.playSafe(parts, o.voice || this.nv(lang), rate, onSentence, my, lang);
       return run.finally(() => { if (my === this.tok && !o.keep) this.done(); });
     },
     async playNeural(parts, voice, rate, onSentence, my) {
@@ -90,20 +98,40 @@
         } catch (e) { e.at = i; throw e; }
       }
     },
-    /* الأصوات الطبيعية فقط (Gemini): عند انشغال الخطة المجانية ننتظر ونعيد المحاولة بدل الصوت الآلي */
-    async playSafe(parts, voice, rate, onSentence, my) {
-      let from = 0;
-      for (let tries = 0; tries <= 3; tries++) {
-        try { return await this.playNeural(parts.slice(from), voice, rate, onSentence ? i => onSentence(i + from) : null, my); }
+    /* Gemini أولًا؛ وعند انشغال الخطة المجانية ينتقل تلقائيًّا إلى أفضل صوت في المتصفح ويُكمل من الجملة نفسها */
+    async playSafe(parts, voice, rate, onSentence, my, lang) {
+      lang = lang || (String(voice).startsWith("ar") ? "ar" : "es");
+      if (this.neural()) {
+        try { return await this.playNeural(parts, voice, rate, onSentence, my); }
         catch (e) {
           if (my !== this.tok || (e && e.name === "NotAllowedError")) return;
-          from += e.at || 0; if (tries === 3) break;
-          $("#now-text").textContent = "⏳ الصوت الطبيعي مشغول لحظات (حدّ الخطة المجانية)… سيكمل تلقائيًّا";
-          for (let w = 0; w < 20 && my === this.tok; w++) await new Promise(r => setTimeout(r, 1000));
-          if (my !== this.tok) return;
+          this.downUntil = Date.now() + 45000; parts = parts.slice(e.at || 0);
+          if (Date.now() - (this.warnedAt || 0) > 90000) { this.warnedAt = Date.now(); toast("الصوت الطبيعي مشغول (حدّ الخطة المجانية)؛ نكمل بصوت المتصفح مؤقتًا"); }
         }
       }
-      toast("تعذّر تشغيل الصوت الطبيعي الآن؛ أعد المحاولة بعد دقيقة");
+      return this.playBrowser(parts, lang, rate, onSentence, my);
+    },
+    playBrowser(parts, lang, rate, onSentence, my) {
+      this.mode = "browser";
+      return new Promise(res => {
+        if (!this.ok) { toast("متصفحك لا يدعم النطق الصوتي"); return res(); }
+        const go = () => {
+          if (my !== this.tok) return res();
+          try { speechSynthesis.cancel(); } catch (e) { }
+          const voice = this.pick(lang); if (!voice && lang === "ar") toast("لا يوجد صوت عربي في متصفحك؛ ثبّت صوتًا عربيًّا من إعدادات النظام");
+          let left = parts.length; const finish = () => { if (--left <= 0) { clearInterval(this.keep); res(); } };
+          clearInterval(this.keep); this.keep = setInterval(() => { try { if (speechSynthesis.speaking && !speechSynthesis.paused) { speechSynthesis.pause(); speechSynthesis.resume(); } } catch (e) { } }, 10000); // علاج توقّف Chrome بعد 15 ثانية
+          parts.forEach((p, i) => {
+            const u = new SpeechSynthesisUtterance(p);
+            u.lang = voice ? voice.lang : (lang === "es" ? "es-ES" : "ar-SA"); if (voice) u.voice = voice;
+            u.rate = Math.min(1.6, Math.max(0.5, rate)); u.pitch = Number(S.pitch) || 1; u.volume = 1;
+            u.onstart = () => { if (my !== this.tok) return; $("#now-text").textContent = p; if (onSentence) onSentence(i); };
+            u.onend = finish; u.onerror = ev => { if (ev.error !== "interrupted" && ev.error !== "canceled") finish(); else res(); };
+            speechSynthesis.speak(u);
+          });
+        };
+        if (this.voices.length || !("onvoiceschanged" in speechSynthesis)) go(); else { let done = false; const h = () => { if (!done) { done = true; go(); } }; speechSynthesis.addEventListener("voiceschanged", h, { once: true }); setTimeout(h, 700); }
+      });
     },
     /* lines: [{text, lang, voice}] played one after another */
     async seq(lines, onLine) {
@@ -112,14 +140,15 @@
       for (let i = 0; i < lines.length; i++) {
         if (my !== this.tok) return; if (onLine) onLine(i);
         const lang = lines[i].lang || "es", parts = this.split(lines[i].text), voice = lines[i].voice || this.nv(lang);
-        await this.playSafe(parts, voice, rate, null, my);
+        await this.playSafe(parts, voice, rate, null, my, lang);
       }
       if (my === this.tok) { if (onLine) onLine(lines.length); this.done(); }
     },
     done() { $("#player").hidden = true; $$("mark.speaking").forEach(m => m.replaceWith(...m.childNodes)); document.dispatchEvent(new Event("tts-end")); },
-    stop(silent) { this.tok++; try { this.au.pause(); this.au.removeAttribute("src"); this.au.load(); } catch (e) { } if (this.ok) try { speechSynthesis.cancel(); } catch (e) { } if (!silent) this.done(); },
+    stop(silent) { this.tok++; try { this.au.pause(); this.au.removeAttribute("src"); this.au.load(); } catch (e) { } if (this.ok) try { speechSynthesis.cancel(); } catch (e) { } clearInterval(this.keep); if (!silent) this.done(); },
     toggle() {
       if (this.mode === "neural") { if (this.au.paused) { this.au.play().catch(() => { }); $("#p-pause").textContent = "⏸"; } else { this.au.pause(); $("#p-pause").textContent = "▶"; } return; }
+      if (!this.ok) return; if (speechSynthesis.paused) { speechSynthesis.resume(); $("#p-pause").textContent = "⏸"; } else { speechSynthesis.pause(); $("#p-pause").textContent = "▶"; }
     }
   };
   TTS.init();
@@ -446,17 +475,17 @@
       <div class="row" style="margin-top:10px"><button class="primary" type="button" id="pr-all">🔊 اقرأ كاملًا</button><button type="button" id="pr-next">▶ الجملة التالية</button><button type="button" id="pr-stop">⏹</button><button type="button" class="gem-btn" data-gem-src="#pr-text" data-gem-dir="es-ar" data-gem-out="#pr-gem" hidden>✨ المعنى عبر Gemini</button><a class="btn" id="pr-tr" href="#" target="_blank" rel="noopener">المعنى في Google</a></div><div id="pr-gem"></div>
       <div id="pr-sent" class="es-text" lang="es" style="margin-top:12px"></div></div>
     <div class="card"><h3>الصوت والسرعة</h3>
-      <div class="field" hidden><label for="v-eng">نوع الصوت</label><select id="v-eng"><option value="neural"${S.engine !== "browser" ? " selected" : ""}>أصوات بشرية طبيعية (موصى بها)</option><option value="browser"${S.engine === "browser" ? " selected" : ""}>أصوات المتصفح (تعمل دون إنترنت)</option></select></div>
+      <div class="field"><label for="v-eng">نوع الصوت</label><select id="v-eng"><option value="neural"${S.engine !== "browser" ? " selected" : ""}>Gemini الطبيعي أولًا، وصوت المتصفح عند الانشغال (موصى به)</option><option value="browser"${S.engine === "browser" ? " selected" : ""}>صوت المتصفح دائمًا (يعمل دون إنترنت)</option></select></div>
       <div class="field"><label for="nv-es">الصوت الإسباني</label><select id="nv-es">${NV.es.map(v => `<option value="${v[0]}"${v[0] === TTS.nv("es") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
       <div class="field"><span class="small" style="font-weight:700">جرّب الأصوات</span><div class="chips">${NV.es.map(v => `<button type="button" class="chip" data-nvtry="${v[0]}" aria-pressed="${v[0] === TTS.nv("es")}">${v[2] === "F" ? "👩" : "👨"} ${v[1].split(" — ")[1]} · ${v[1].split(" — ")[0]}</button>`).join("")}</div></div>
       <div class="field"><label for="nv-ar">الصوت العربي (للمعاني)</label><select id="nv-ar">${NV.ar.map(v => `<option value="${v[0]}"${v[0] === TTS.nv("ar") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
       <div class="field"><label for="v-rate">السرعة</label><div class="row"><input type="range" id="v-rate" data-rate min="0.5" max="1.5" step="0.05" value="${S.rate}" style="flex:1"><output data-rate-out>${Number(S.rate).toFixed(2)}×</output></div></div>
-      <details class="small" hidden><summary>أصوات المتصفح</summary>
+      <details class="small" id="v-browser"><summary>أصوات المتصفح — اختبر واختر الأفضل على جهازك</summary><p class="muted small">تُستعمل تلقائيًّا حين ينشغل Gemini. الجودة تختلف بحسب الجهاز: على Edge اختر أصوات «Natural/Online»، وعلى Chrome أصوات «Google»، وعلى الآيفون «Siri/Enhanced».</p><div id="v-test"></div>
       <div class="field"><label for="v-es">صوت المتصفح الإسباني</label><select id="v-es"></select><small class="muted" id="v-count"></small></div>
       <div class="field"><span class="small" style="font-weight:700">لهجة سريعة</span><div class="chips" id="v-dial"></div></div>
       <div class="field"><label for="v-pitch">طبقة الصوت</label><input type="range" id="v-pitch" min="0.7" max="1.3" step="0.05" value="${S.pitch}"></div>
       <div class="field"><label for="v-ar">صوت المتصفح العربي</label><select id="v-ar"></select></div></details>
-      <p class="muted small" id="v-note">كل الأصوات طبيعية من نماذج Google Gemini الصوتية (لهجات إسبانيا والمكسيك وأمريكا اللاتينية والعربية الفصحى)، تُولَّد على الخادم مرة لكل جملة ثم تُحفظ فتعمل فورًا بعد ذلك. ألغينا أصوات المتصفح الآلية؛ وإن انشغلت الخدمة لحظات بسبب حدّ الخطة المجانية ينتظر المشغّل ثم يُكمل تلقائيًّا.</p></div></div>
+      <p class="muted small" id="v-note">الأصوات الطبيعية من Google Gemini (لهجات إسبانيا والمكسيك وأمريكا اللاتينية والعربية الفصحى)، تُولَّد مرة لكل جملة ثم تُحفظ. وحين تبلغ الخطة المجانية حدّها ينتقل الموقع تلقائيًّا إلى أفضل صوت في متصفحك ثم يعود إلى Gemini.</p></div></div>
     <div class="card"><h3>عبارات يحتاجها الداعية</h3>${PHRASES.map(p => { const k = reg({ es: p[0], ar: p[1] }); return `<div class="phrase"><div><p class="es-text" lang="es">${esc(p[0])}</p><p class="small muted">${esc(p[1])}</p></div><div class="actions"><button type="button" data-act="say" data-k="${k}" aria-label="استمع">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ</button></div></div>`; }).join("")}</div>`;
   function bindPron() {
     const fillVoices = () => {
@@ -464,6 +493,10 @@
       $("#v-es").innerHTML = es.length ? es.map(v => `<option value="${esc(v.voiceURI)}"${v.voiceURI === (TTS.pick("es") || {}).voiceURI ? " selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("") : `<option>لا توجد أصوات إسبانية في هذا المتصفح</option>`;
       $("#v-ar").innerHTML = ar.length ? ar.map(v => `<option value="${esc(v.voiceURI)}"${v.voiceURI === (TTS.pick("ar") || {}).voiceURI ? " selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("") : `<option>لا يوجد صوت عربي</option>`;
       $("#v-count").textContent = TTS.ok ? `${es.length} صوتًا إسبانيًا متاحًا على جهازك` : "متصفحك لا يدعم النطق";
+      const best = TTS.pick("es"); const ranked = [...es].sort((a, b) => TTS.score(b, "es") - TTS.score(a, "es")).slice(0, 12);
+      $("#v-test").innerHTML = ranked.length ? `<div class="v-list">${ranked.map(v => `<div class="v-row${v === best ? " on" : ""}"><span class="tag ${TTS.quality(v) === "عالية" ? "gold" : ""}">${TTS.quality(v)}</span><bdi dir="ltr" class="small">${esc(v.name)} · ${esc(v.lang)}</bdi><span class="row"><button type="button" class="lx-ic" data-vtry="${esc(v.voiceURI)}" title="جرّب">▶</button><button type="button" data-vuse="${esc(v.voiceURI)}"${v === best ? " disabled" : ""}>${v === best ? "✓ المختار" : "اختر"}</button></span></div>`).join("")}</div>` : `<p class="muted small">لا توجد أصوات إسبانية في هذا المتصفح. على ويندوز: الإعدادات ← الوقت واللغة ← الكلام ← إضافة أصوات (الإسبانية). على أندرويد: إعدادات ← تحويل النص إلى كلام ← تثبيت الإسبانية.</p>`;
+      $$("[data-vtry]").forEach(b => b.onclick = () => { const v = es.find(x => x.voiceURI === b.dataset.vtry); if (!v) return; TTS.stop(true); const u = new SpeechSynthesisUtterance("Hola, soy tu compañero de dawah. ¿Cómo estás hoy?"); u.voice = v; u.lang = v.lang; u.rate = Number(S.rate) || 0.95; speechSynthesis.cancel(); speechSynthesis.speak(u); });
+      $$("[data-vuse]").forEach(b => b.onclick = () => { S.voice = b.dataset.vuse; saveS(); fillVoices(); toast("اختير هذا الصوت لحالات الاحتياط"); });
       const langs = new Set(es.map(v => v.lang.replace("_", "-")));
       $("#v-dial").innerHTML = DIALECTS.filter(d => langs.has(d[0])).map(d => `<button type="button" class="chip" data-dial="${d[0]}">${d[1]}</button>`).join("") || `<span class="muted small">لم تُكتشف لهجات متعددة</span>`;
       $$("[data-dial]").forEach(b => b.onclick = () => { const v = es.find(x => x.lang.replace("_", "-") === b.dataset.dial); if (v) { S.voice = v.voiceURI; saveS(); fillVoices(); TTS.speak("Hola, soy tu compañero de dawah.", "es"); } });
