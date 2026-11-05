@@ -373,6 +373,7 @@ app.get("/api/ihtext", async (req, res) => {
 });
 
 require("./tts").mount(app);
+require("./visitors").mount(app, express);
 
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 

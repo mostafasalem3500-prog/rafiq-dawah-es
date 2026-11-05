@@ -480,3 +480,10 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
 .v-row { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; flex-wrap: wrap; }
 .v-row.on { border-color: var(--green-2); background: var(--green-soft); }
 .v-row bdi { flex: 1; min-width: 160px; }
+
+/* عدّاد الزوار */
+.visits { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: .9rem; }
+.visits b { color: var(--ink, inherit); font-variant-numeric: tabular-nums; }
+.visits .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22a06b; margin-inline-end: 4px; vertical-align: middle; animation: vpulse 2s ease-in-out infinite; }
+@keyframes vpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .visits .dot { animation: none; } }
