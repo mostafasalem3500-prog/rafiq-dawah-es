@@ -53,7 +53,7 @@
       const load = () => { this.voices = speechSynthesis.getVoices(); document.dispatchEvent(new Event("voices")); };
       load(); speechSynthesis.addEventListener("voiceschanged", load);
     },
-    neural() { return S.engine !== "browser" && !this.down && Date.now() > (this.downUntil || 0); },
+    neural() { return true; },
     nv(lang) { const id = lang === "ar" ? S.nvAr : S.nvEs; return NV[lang].some(v => v[0] === id) ? id : NV[lang][0][0]; },
     partner(id) { const v = NV.es.find(x => x[0] === id) || NV.es[0]; const pre = v[0].split("-")[0]; const same = NV.es.filter(x => x[0].split("-")[0] === pre && x[2] !== v[2]); return (same[0] || NV.es.find(x => x[2] !== v[2]))[0]; },
     list(lang) { return this.voices.filter(v => lang === "es" ? /^es([-_]|$)/i.test(v.lang) : /^ar([-_]|$)/i.test(v.lang)); },
@@ -72,8 +72,7 @@
       this.stop(true); const my = ++this.tok; const parts = this.split(text); if (!parts.length) return Promise.resolve();
       if (!o.quiet) { $("#player").hidden = false; $("#p-pause").textContent = "⏸"; }
       const rate = o.rate || Number(S.rate) || 0.9;
-      const run = this.neural() ? this.playNeural(parts, o.voice || this.nv(lang), rate, onSentence, my).catch(e => { if (my !== this.tok) return; if (e && e.name === "NotAllowedError") return; this.downUntil = Date.now() + 60000; if (!this.warned) { this.warned = true; toast("الصوت الطبيعي مشغول الآن؛ نستعمل صوت المتصفح مؤقتًا"); } return this.playBrowser(parts.slice(e.at || 0), lang, rate, onSentence, my); })
-        : this.playBrowser(parts, lang, rate, onSentence, my);
+      const run = this.playSafe(parts, o.voice || this.nv(lang), rate, onSentence, my);
       return run.finally(() => { if (my === this.tok && !o.keep) this.done(); });
     },
     async playNeural(parts, voice, rate, onSentence, my) {
@@ -91,21 +90,20 @@
         } catch (e) { e.at = i; throw e; }
       }
     },
-    playBrowser(parts, lang, rate, onSentence, my) {
-      this.mode = "browser";
-      return new Promise(res => {
-        if (!this.ok) { toast("متصفحك لا يدعم النطق الصوتي"); return res(); }
-        speechSynthesis.cancel(); const voice = this.pick(lang);
-        if (!voice && lang === "ar") toast("لا يوجد صوت عربي في متصفحك");
-        parts.forEach((p, i) => {
-          const u = new SpeechSynthesisUtterance(p);
-          u.lang = voice ? voice.lang : (lang === "es" ? "es-ES" : "ar-SA"); if (voice) u.voice = voice;
-          u.rate = rate; u.pitch = Number(S.pitch) || 1;
-          u.onstart = () => { if (my !== this.tok) return; $("#now-text").textContent = p; if (onSentence) onSentence(i); };
-          u.onend = u.onerror = () => { if (i === parts.length - 1) res(); };
-          speechSynthesis.speak(u);
-        });
-      });
+    /* الأصوات الطبيعية فقط (Gemini): عند انشغال الخطة المجانية ننتظر ونعيد المحاولة بدل الصوت الآلي */
+    async playSafe(parts, voice, rate, onSentence, my) {
+      let from = 0;
+      for (let tries = 0; tries <= 3; tries++) {
+        try { return await this.playNeural(parts.slice(from), voice, rate, onSentence ? i => onSentence(i + from) : null, my); }
+        catch (e) {
+          if (my !== this.tok || (e && e.name === "NotAllowedError")) return;
+          from += e.at || 0; if (tries === 3) break;
+          $("#now-text").textContent = "⏳ الصوت الطبيعي مشغول لحظات (حدّ الخطة المجانية)… سيكمل تلقائيًّا";
+          for (let w = 0; w < 20 && my === this.tok; w++) await new Promise(r => setTimeout(r, 1000));
+          if (my !== this.tok) return;
+        }
+      }
+      toast("تعذّر تشغيل الصوت الطبيعي الآن؛ أعد المحاولة بعد دقيقة");
     },
     /* lines: [{text, lang, voice}] played one after another */
     async seq(lines, onLine) {
@@ -114,16 +112,14 @@
       for (let i = 0; i < lines.length; i++) {
         if (my !== this.tok) return; if (onLine) onLine(i);
         const lang = lines[i].lang || "es", parts = this.split(lines[i].text), voice = lines[i].voice || this.nv(lang);
-        if (this.neural()) { try { await this.playNeural(parts, voice, rate, null, my); } catch (e) { if (my !== this.tok || e.name === "NotAllowedError") return; this.downUntil = Date.now() + 60000; await this.playBrowser(parts, lang, rate, null, my); } }
-        else await this.playBrowser(parts, lang, rate, null, my);
+        await this.playSafe(parts, voice, rate, null, my);
       }
       if (my === this.tok) { if (onLine) onLine(lines.length); this.done(); }
     },
     done() { $("#player").hidden = true; $$("mark.speaking").forEach(m => m.replaceWith(...m.childNodes)); document.dispatchEvent(new Event("tts-end")); },
-    stop(silent) { this.tok++; try { this.au.pause(); this.au.removeAttribute("src"); this.au.load(); } catch (e) { } if (this.ok) speechSynthesis.cancel(); if (!silent) this.done(); },
+    stop(silent) { this.tok++; try { this.au.pause(); this.au.removeAttribute("src"); this.au.load(); } catch (e) { } if (this.ok) try { speechSynthesis.cancel(); } catch (e) { } if (!silent) this.done(); },
     toggle() {
       if (this.mode === "neural") { if (this.au.paused) { this.au.play().catch(() => { }); $("#p-pause").textContent = "⏸"; } else { this.au.pause(); $("#p-pause").textContent = "▶"; } return; }
-      if (!this.ok) return; if (speechSynthesis.paused) { speechSynthesis.resume(); $("#p-pause").textContent = "⏸"; } else { speechSynthesis.pause(); $("#p-pause").textContent = "▶"; }
     }
   };
   TTS.init();
@@ -450,17 +446,17 @@
       <div class="row" style="margin-top:10px"><button class="primary" type="button" id="pr-all">🔊 اقرأ كاملًا</button><button type="button" id="pr-next">▶ الجملة التالية</button><button type="button" id="pr-stop">⏹</button><button type="button" class="gem-btn" data-gem-src="#pr-text" data-gem-dir="es-ar" data-gem-out="#pr-gem" hidden>✨ المعنى عبر Gemini</button><a class="btn" id="pr-tr" href="#" target="_blank" rel="noopener">المعنى في Google</a></div><div id="pr-gem"></div>
       <div id="pr-sent" class="es-text" lang="es" style="margin-top:12px"></div></div>
     <div class="card"><h3>الصوت والسرعة</h3>
-      <div class="field"><label for="v-eng">نوع الصوت</label><select id="v-eng"><option value="neural"${S.engine !== "browser" ? " selected" : ""}>أصوات بشرية طبيعية (موصى بها)</option><option value="browser"${S.engine === "browser" ? " selected" : ""}>أصوات المتصفح (تعمل دون إنترنت)</option></select></div>
+      <div class="field" hidden><label for="v-eng">نوع الصوت</label><select id="v-eng"><option value="neural"${S.engine !== "browser" ? " selected" : ""}>أصوات بشرية طبيعية (موصى بها)</option><option value="browser"${S.engine === "browser" ? " selected" : ""}>أصوات المتصفح (تعمل دون إنترنت)</option></select></div>
       <div class="field"><label for="nv-es">الصوت الإسباني</label><select id="nv-es">${NV.es.map(v => `<option value="${v[0]}"${v[0] === TTS.nv("es") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
       <div class="field"><span class="small" style="font-weight:700">جرّب الأصوات</span><div class="chips">${NV.es.map(v => `<button type="button" class="chip" data-nvtry="${v[0]}" aria-pressed="${v[0] === TTS.nv("es")}">${v[2] === "F" ? "👩" : "👨"} ${v[1].split(" — ")[1]} · ${v[1].split(" — ")[0]}</button>`).join("")}</div></div>
       <div class="field"><label for="nv-ar">الصوت العربي (للمعاني)</label><select id="nv-ar">${NV.ar.map(v => `<option value="${v[0]}"${v[0] === TTS.nv("ar") ? " selected" : ""}>${v[1]} (${v[2] === "F" ? "امرأة" : "رجل"})</option>`).join("")}</select></div>
       <div class="field"><label for="v-rate">السرعة</label><div class="row"><input type="range" id="v-rate" data-rate min="0.5" max="1.5" step="0.05" value="${S.rate}" style="flex:1"><output data-rate-out>${Number(S.rate).toFixed(2)}×</output></div></div>
-      <details class="small"><summary>أصوات المتصفح (احتياطي عند انقطاع الإنترنت)</summary>
+      <details class="small" hidden><summary>أصوات المتصفح</summary>
       <div class="field"><label for="v-es">صوت المتصفح الإسباني</label><select id="v-es"></select><small class="muted" id="v-count"></small></div>
       <div class="field"><span class="small" style="font-weight:700">لهجة سريعة</span><div class="chips" id="v-dial"></div></div>
       <div class="field"><label for="v-pitch">طبقة الصوت</label><input type="range" id="v-pitch" min="0.7" max="1.3" step="0.05" value="${S.pitch}"></div>
       <div class="field"><label for="v-ar">صوت المتصفح العربي</label><select id="v-ar"></select></div></details>
-      <p class="muted small" id="v-note">الأصوات الطبيعية من نماذج Google Gemini الصوتية (بلهجات إسبانيا والمكسيك وأمريكا اللاتينية)، تُولَّد على الخادم مرة واحدة لكل جملة ثم تُحفظ. إذا لم تتوفر يستعمل الموقع أفضل صوت في متصفحك تلقائيًا؛ وأجود أصوات المتصفح المجانية في Microsoft Edge (الأصوات المسماة Natural).</p></div></div>
+      <p class="muted small" id="v-note">كل الأصوات طبيعية من نماذج Google Gemini الصوتية (لهجات إسبانيا والمكسيك وأمريكا اللاتينية والعربية الفصحى)، تُولَّد على الخادم مرة لكل جملة ثم تُحفظ فتعمل فورًا بعد ذلك. ألغينا أصوات المتصفح الآلية؛ وإن انشغلت الخدمة لحظات بسبب حدّ الخطة المجانية ينتظر المشغّل ثم يُكمل تلقائيًّا.</p></div></div>
     <div class="card"><h3>عبارات يحتاجها الداعية</h3>${PHRASES.map(p => { const k = reg({ es: p[0], ar: p[1] }); return `<div class="phrase"><div><p class="es-text" lang="es">${esc(p[0])}</p><p class="small muted">${esc(p[1])}</p></div><div class="actions"><button type="button" data-act="say" data-k="${k}" aria-label="استمع">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ</button></div></div>`; }).join("")}</div>`;
   function bindPron() {
     const fillVoices = () => {
@@ -608,16 +604,23 @@
       <div class="field"><label for="cd-msg">الرسالة</label><select id="cd-msg">${RQ.SITU.map(x => { const ms = RQ.MSG.filter(m => m.si[0] === x.id); return ms.length ? `<optgroup label="${esc(x.ar)}">${ms.map(m => `<option value="${m.id}"${m.id === arg ? " selected" : ""}>${esc(m.t)}</option>`).join("")}</optgroup>` : ""; }).join("")}<option value="custom">نص من عندي…</option></select></div>
       <div class="field" id="cd-custom-wrap" hidden><label for="cd-custom">النص الإسباني</label><textarea id="cd-custom" lang="es" dir="ltr" placeholder="Escribe aquí tu mensaje…"></textarea></div>
       <div class="form"><div class="field"><label for="cd-size">المقاس</label><select id="cd-size"><option value="1080x1350">منشور 4:5</option><option value="1080x1920">حالة أو ستوري</option><option value="1080x1080">مربع</option></select></div>
-      <div class="field"><label for="cd-theme">الطابع</label><select id="cd-theme"><option value="green">أخضر وذهبي</option><option value="light">فاتح</option><option value="night">ليلي</option></select></div></div>
+      <div class="field"><label for="cd-theme">الطابع</label><select id="cd-theme"><option value="green">أخضر وذهبي</option><option value="navy">كحلي وذهبي</option><option value="teal">فيروزي هادئ</option><option value="olive">زيتوني</option><option value="night">ليلي</option><option value="light">فاتح</option><option value="sand">رملي</option><option value="dawn">فجر</option><option value="paper">ورقي بسيط</option></select></div>
+      <div class="field"><label for="cd-deco">الزخرفة</label><select id="cd-deco"><option value="star">نجوم هندسية</option><option value="arch">قوس وإطار</option><option value="lines">خطوط ناعمة</option><option value="none">بلا زخرفة</option></select></div></div>
       <label class="row small" style="font-weight:600;margin-top:10px"><input type="checkbox" id="cd-verse" checked> أضف نص الآية من QuranEnc إن وُجدت</label>
       <label class="row small" style="font-weight:600"><input type="checkbox" id="cd-ar"> أضف المعنى العربي</label>
       <div class="field" style="margin-top:8px"><label for="cd-sign">توقيع اختياري</label><input type="text" id="cd-sign" dir="ltr" placeholder="t.me/CimsEspaniol"></div>
-      <div class="row" style="margin-top:12px"><button class="primary" type="button" id="cd-dl">⬇ تنزيل الصورة</button><button type="button" id="cd-copy">نسخ النص</button></div></div>
+      <div class="row" style="margin-top:12px"><button class="primary" type="button" id="cd-dl">⬇ تنزيل الصورة</button><button type="button" id="cd-share" hidden>📤 مشاركة</button><button type="button" id="cd-rand">🎲 رسالة عشوائية</button><button type="button" id="cd-copy">نسخ النص</button></div></div>
       <div class="card"><canvas id="cd-canvas" style="width:100%;height:auto;border-radius:12px;border:1px solid var(--line)"></canvas><p class="muted small" id="cd-note"></p></div></div>`;
   const THEMES = {
     green: { a: "#0d5a46", b: "#063328", ink: "#ffffff", acc: "#d9b45a", muted: "rgba(255,255,255,.78)", pat: "rgba(255,255,255,.055)" },
     light: { a: "#f7f4ec", b: "#ebe4d2", ink: "#14231d", acc: "#8a6714", muted: "#4f6359", pat: "rgba(11,77,60,.06)" },
-    night: { a: "#132033", b: "#0a111d", ink: "#f1f5f9", acc: "#e6c472", muted: "rgba(241,245,249,.75)", pat: "rgba(255,255,255,.045)" }
+    night: { a: "#132033", b: "#0a111d", ink: "#f1f5f9", acc: "#e6c472", muted: "rgba(241,245,249,.75)", pat: "rgba(255,255,255,.045)" },
+    sand: { a: "#efe2c6", b: "#d9c49b", ink: "#2b2214", acc: "#7a4f12", muted: "#5b4a2c", pat: "rgba(90,60,20,.07)" },
+    navy: { a: "#1b2e57", b: "#0e1a36", ink: "#ffffff", acc: "#e8c26a", muted: "rgba(255,255,255,.78)", pat: "rgba(232,194,106,.07)" },
+    olive: { a: "#4a5a2c", b: "#2c3818", ink: "#fbf8ee", acc: "#e9d28f", muted: "rgba(251,248,238,.8)", pat: "rgba(255,255,255,.05)" },
+    dawn: { a: "#fde7d3", b: "#f6c9a8", ink: "#3a2318", acc: "#a0451f", muted: "#6b4636", pat: "rgba(160,69,31,.07)" },
+    teal: { a: "#0f4c5c", b: "#082a33", ink: "#effafc", acc: "#7fd6c2", muted: "rgba(239,250,252,.78)", pat: "rgba(127,214,194,.07)" },
+    paper: { a: "#ffffff", b: "#f3f3ef", ink: "#1b1b1b", acc: "#0b4d3c", muted: "#555", pat: "rgba(0,0,0,.035)" }
   };
   let cardTok = 0;
   async function drawCard() {
@@ -635,9 +638,11 @@
     const [W, H] = $("#cd-size").value.split("x").map(Number); const T = THEMES[$("#cd-theme").value];
     const c = $("#cd-canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
     const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, T.a); g.addColorStop(1, T.b); x.fillStyle = g; x.fillRect(0, 0, W, H);
-    x.strokeStyle = T.pat; x.lineWidth = 2; const step = 120;
-    for (let yy = step / 2; yy < H; yy += step) for (let xx = step / 2; xx < W; xx += step) { x.beginPath(); for (let i = 0; i < 16; i++) { const r = i % 2 ? 22 : 46; const an = Math.PI / 8 * i; x.lineTo(xx + r * Math.cos(an), yy + r * Math.sin(an)); } x.closePath(); x.stroke(); }
-    const pad = W * 0.09, maxW = W - pad * 2;
+    const deco = $("#cd-deco").value; x.strokeStyle = T.pat; x.lineWidth = 2; const step = 120;
+    if (deco === "star") for (let yy = step / 2; yy < H; yy += step) for (let xx = step / 2; xx < W; xx += step) { x.beginPath(); for (let i = 0; i < 16; i++) { const r = i % 2 ? 22 : 46; const an = Math.PI / 8 * i; x.lineTo(xx + r * Math.cos(an), yy + r * Math.sin(an)); } x.closePath(); x.stroke(); }
+    if (deco === "lines") { x.lineWidth = 1.5; for (let k = -H; k < W; k += 36) { x.beginPath(); x.moveTo(k, 0); x.lineTo(k + H, H); x.stroke(); } }
+    if (deco === "arch") { const m2 = W * 0.045; x.strokeStyle = T.acc; x.globalAlpha = .55; x.lineWidth = 4; x.beginPath(); x.moveTo(m2, H - m2); x.lineTo(m2, W * 0.42); x.quadraticCurveTo(m2, m2, W / 2, m2); x.quadraticCurveTo(W - m2, m2, W - m2, W * 0.42); x.lineTo(W - m2, H - m2); x.closePath(); x.stroke(); x.lineWidth = 1.5; x.beginPath(); x.moveTo(m2 + 16, H - m2 - 16); x.lineTo(m2 + 16, W * 0.42 + 8); x.quadraticCurveTo(m2 + 16, m2 + 16, W / 2, m2 + 16); x.quadraticCurveTo(W - m2 - 16, m2 + 16, W - m2 - 16, W * 0.42 + 8); x.lineTo(W - m2 - 16, H - m2 - 16); x.closePath(); x.stroke(); x.globalAlpha = 1; }
+    const pad = W * (deco === "arch" ? 0.13 : 0.09), maxW = W - pad * 2;
     const wrap = (text, font, mw) => { x.font = font; const out = []; let line = ""; for (const w of text.split(/\s+/)) { const t = line ? line + " " + w : w; if (x.measureText(t).width > mw && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); return out; };
     const showAr = $("#cd-ar").checked && m;
     let size = Math.round(W * 0.056), L, VL = [], AL = [], total = 0;
@@ -669,7 +674,12 @@
   }
   function bindCard(arg) {
     if (arg && arg.startsWith("q:")) { const q = RQ.QUOTES.find(x => x.id === arg.slice(2)); if (q) { $("#cd-msg").value = "custom"; $("#cd-custom").value = `«${q.es}»`; $("#cd-sign").value = `${qBook(q.b)[0]} · IslamHouse.com`; $("#cd-verse").checked = false; } }
-    ["#cd-msg", "#cd-size", "#cd-theme", "#cd-verse", "#cd-ar"].forEach(s => $(s).onchange = drawCard);
+    try { const pr = JSON.parse(localStorage.getItem("rafiq-card") || "{}"); ["size", "theme", "deco", "sign"].forEach(k => { if (pr[k] && $("#cd-" + k)) $("#cd-" + k).value = pr[k]; }); } catch (e) { }
+    const keep = () => { try { localStorage.setItem("rafiq-card", JSON.stringify({ size: $("#cd-size").value, theme: $("#cd-theme").value, deco: $("#cd-deco").value, sign: $("#cd-sign").value })); } catch (e) { } };
+    ["#cd-msg", "#cd-size", "#cd-theme", "#cd-deco", "#cd-verse", "#cd-ar"].forEach(s => $(s).onchange = () => { keep(); drawCard(); });
+    $("#cd-sign").addEventListener("change", keep);
+    $("#cd-rand").onclick = () => { const opts = $$("#cd-msg option").filter(o => o.value !== "custom" && !o.hidden); const o = opts[Math.floor(Math.random() * opts.length)]; if (o) { $("#cd-msg").value = o.value; drawCard(); } };
+    $("#cd-share").hidden = !(navigator.canShare); $("#cd-share").onclick = () => $("#cd-canvas").toBlob(async b => { const f = new File([b], `tarjeta-${$("#cd-msg").value}.png`, { type: "image/png" }); try { if (navigator.canShare({ files: [f] })) await navigator.share({ files: [f], text: "" }); else toast("المشاركة غير مدعومة؛ نزّل الصورة"); } catch (e) { } }, "image/png");
     let t; ["#cd-custom", "#cd-sign"].forEach(s => $(s).oninput = () => { clearTimeout(t); t = setTimeout(drawCard, 250); });
     $("#cd-dl").onclick = () => { $("#cd-canvas").toBlob(b => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `tarjeta-${$("#cd-msg").value}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("نُزّلت الصورة"); }, "image/png"); };
     $("#cd-copy").onclick = () => { const id = $("#cd-msg").value; const m = RQ.MSG.find(z => z.id === id); copy(id === "custom" ? $("#cd-custom").value : m.es); };
