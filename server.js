@@ -217,14 +217,14 @@ async function geminiOnce(model, system, user, temperature) {
   } catch (e) { if (e.name === "AbortError") { const t = new Error("انتهت مهلة الاتصال بـ Gemini"); t.status = 504; throw t; } throw e; }
   finally { clearTimeout(to); }
 }
-async function gemini(system, user, temperature = 0.2) {
+async function gemini(system, user, temperature = 0.2, hasBackup = false) {
   trDay.n++; await discoverModels();
   const order = geminiPreferred ? [geminiPreferred, ...GEMINI_FALLBACKS.filter(m => m !== geminiPreferred)] : GEMINI_FALLBACKS;
   let last; const t0 = Date.now();
   for (const m of order) {
-    if (Date.now() - t0 > 40000) break;
+    if (Date.now() - t0 > (hasBackup ? 20000 : 40000)) break;
     try { const out = await geminiOnce(m, system, user, temperature); geminiPreferred = m; return out; }
-    catch (e) { last = e; console.error("gemini", m, e.status, String(e.message).slice(0, 160)); if (![429, 500, 503, 504, 404].includes(e.status) && !/demand|overload|unavailable|not found/i.test(e.message)) break; }
+    catch (e) { last = e; console.error("gemini", m, e.status, String(e.message).slice(0, 160)); if (hasBackup && [429, 503, 504].includes(e.status)) break; if (![429, 500, 503, 504, 404].includes(e.status) && !/demand|overload|unavailable|not found/i.test(e.message)) break; }
   }
   throw last;
 }
@@ -279,8 +279,8 @@ async function llm(system, user, temperature = 0.2) {
   const backup = (OPENROUTER_KEY && spend.orAllowed()) || DEEPSEEK_KEY;
   let last;
   if (GEMINI_KEY && !(backup && Date.now() < geminiCoolUntil)) {
-    try { return { text: await gemini(system, user, temperature), engine: "gemini" }; }
-    catch (e) { last = e; if (!backup) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; console.error("gemini failed, using backup:", String(e.message).slice(0, 120)); }
+    try { return { text: await gemini(system, user, temperature, !!backup), engine: "gemini" }; }
+    catch (e) { last = e; if (!backup) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; else if ([503, 504].includes(e.status)) geminiCoolUntil = Date.now() + 60000; console.error("gemini failed, using backup:", String(e.message).slice(0, 120)); }
   }
   if (OPENROUTER_KEY && spend.orAllowed()) {
     try { return { text: await openrouter(system, user, temperature), engine: "openrouter" }; }
