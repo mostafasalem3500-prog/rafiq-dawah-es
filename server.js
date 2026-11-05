@@ -150,7 +150,7 @@ app.get("/api/ih/:block", async (req, res) => {
 
 /* ---------- Gemini translation (key stays on the server) ---------- */
 const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY || "";
+const DEEPSEEK_KEY = (process.env.DEEPSEEK_API_KEY || Object.entries(process.env).find(([k]) => /deep\s*seek/i.test(k) && !/model/i.test(k))?.[1] || "").trim();
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
 const spend = require("./spend");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "";
