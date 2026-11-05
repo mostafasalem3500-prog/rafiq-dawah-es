@@ -99,13 +99,18 @@ async function synth(text, v, useGemini = true) {
     }
     throw lastErr;
   };
-  let gErr;
+  /* OpenRouter first (paid, monthly cap) → free Gemini → the browser's own voice (client side) */
+  let orErr;
+  if (orReady()) {
+    try { const r = await tryModels(OR_TTS, synthOpenRouter); orStatus = { ok: true, err: "", model: r.model }; return r.b; }
+    catch (e) { orErr = e; if (!(KEY && useGemini)) throw e; console.error("openrouter tts failed, using free gemini:", String(e.message).slice(0, 120)); }
+  }
   if (KEY && useGemini) {
     await discoverTts();
-    try { return (await tryModels(MODELS, synthOnce)).b; } catch (e) { gErr = e; if (/quota|rate|429|exhaust/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } if (!orReady()) throw e; console.error("gemini tts failed, using openrouter:", String(e.message).slice(0, 120)); }
+    try { return (await tryModels(MODELS, synthOnce)).b; }
+    catch (e) { if (/quota|rate|429|exhaust/i.test(e.message)) { const m = /retry in ([\d.]+)s/i.exec(e.message); coolUntil = Date.now() + (m ? Math.ceil(+m[1]) * 1000 : 60000); } throw e; }
   }
-  if (orReady()) { const r = await tryModels(OR_TTS, synthOpenRouter); orStatus = { ok: true, err: "", model: r.model }; return r.b; }
-  throw gErr || new Error("no tts engine");
+  throw orErr || new Error("no tts engine");
 }
 let orStatus = { ok: null, err: "", model: "" };
 async function synthOpenRouter(model, prompt, v) {

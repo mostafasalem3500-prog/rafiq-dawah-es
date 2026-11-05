@@ -274,17 +274,16 @@ async function openrouter(system, user, temperature = 0.2) {
   openrouterState = { ok: false, at: Date.now(), err: String(last && last.message).slice(0, 160), model: "" };
   throw last;
 }
-/* text engine: Gemini free tier → OpenRouter (paid Gemini, monthly cap) → DeepSeek */
+/* text engine: OpenRouter first (paid Gemini, monthly cap) → free Gemini → DeepSeek */
 async function llm(system, user, temperature = 0.2) {
-  const backup = (OPENROUTER_KEY && spend.orAllowed()) || DEEPSEEK_KEY;
   let last;
-  if (GEMINI_KEY && !(backup && Date.now() < geminiCoolUntil)) {
-    try { return { text: await gemini(system, user, temperature, !!backup), engine: "gemini" }; }
-    catch (e) { last = e; if (!backup) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; else if ([503, 504].includes(e.status)) geminiCoolUntil = Date.now() + 60000; console.error("gemini failed, using backup:", String(e.message).slice(0, 120)); }
-  }
   if (OPENROUTER_KEY && spend.orAllowed()) {
     try { return { text: await openrouter(system, user, temperature), engine: "openrouter" }; }
-    catch (e) { last = e; if (!DEEPSEEK_KEY) throw e; console.error("openrouter failed, using deepseek:", String(e.message).slice(0, 120)); }
+    catch (e) { last = e; if (!GEMINI_KEY && !DEEPSEEK_KEY) throw e; console.error("openrouter failed, using free gemini:", String(e.message).slice(0, 120)); }
+  }
+  if (GEMINI_KEY && !(DEEPSEEK_KEY && Date.now() < geminiCoolUntil)) {
+    try { return { text: await gemini(system, user, temperature, !!DEEPSEEK_KEY), engine: "gemini" }; }
+    catch (e) { last = e; if (!DEEPSEEK_KEY) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; else if ([503, 504].includes(e.status)) geminiCoolUntil = Date.now() + 60000; console.error("gemini failed, using deepseek:", String(e.message).slice(0, 120)); }
   }
   if (!DEEPSEEK_KEY) throw last || new Error("لا يوجد محرك متاح");
   const text = await deepseek(system, user, temperature); deepseekState = { ok: true, at: Date.now(), err: "" };
@@ -320,14 +319,14 @@ app.post("/api/tutor", async (req, res) => {
 app.get("/api/usage", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json(spend.report()); });
 app.get("/api/translate/status", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json({
   enabled: (!!GEMINI_KEY || !!DEEPSEEK_KEY || !!OPENROUTER_KEY) && spend.allowed("text"),
-  model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : OPENROUTER_KEY ? OPENROUTER_MODELS[0] : DEEPSEEK_KEY ? DEEPSEEK_MODEL : null,
+  model: OPENROUTER_KEY && spend.orAllowed() ? OPENROUTER_MODELS[0] : GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : DEEPSEEK_KEY ? DEEPSEEK_MODEL : null,
   models: GEMINI_KEY ? GEMINI_FALLBACKS : [],
   engines: {
     gemini: !!GEMINI_KEY,
     openrouter: OPENROUTER_KEY ? (!spend.orAllowed() ? "budget" : openrouterState.ok === false ? "error" : "ready") : false,
     deepseek: DEEPSEEK_KEY ? (deepseekState.ok === false ? "error" : "ready") : false
   },
-  order: ["gemini", "openrouter", "deepseek"],
+  order: ["openrouter", "gemini", "deepseek"],
   openrouter: OPENROUTER_KEY ? { ...openrouterState, models: OPENROUTER_MODELS, budgetUSD: spend.OR_BUDGET } : null,
   deepseek: DEEPSEEK_KEY ? deepseekState : null
 }); });
