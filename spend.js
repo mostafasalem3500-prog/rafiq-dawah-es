@@ -20,6 +20,7 @@ const PRICES = [
   [/3\.1-flash-lite/, 0.25, 1.5, 1],
   [/flash-lite/, 0.30, 2.5, 1],
   [/3\.8-flash/, 0.75, 3.75, 2],
+  [/deepseek/, 0.28, 0.42, 1],       // DeepSeek (prepaid balance) — priced conservatively
   [/./, 1.5, 7.5, 1]                 // anything else: conservative
 ];
 function price(model) {

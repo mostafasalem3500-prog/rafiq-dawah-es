@@ -150,6 +150,8 @@ app.get("/api/ih/:block", async (req, res) => {
 
 /* ---------- Gemini translation (key stays on the server) ---------- */
 const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
+const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY || "";
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
 const spend = require("./spend");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "";
 const TR_DAILY = Number(process.env.TRANSLATE_DAILY_LIMIT || 300);
@@ -166,7 +168,7 @@ Reglas estrictas:
 app.use("/api/translate", express.json({ limit: "20kb" }));
 /* shared Gemini call + per-IP / daily limits */
 function geminiGate(req, res) {
-  if (!GEMINI_KEY) { res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY بعد" }); return false; }
+  if (!GEMINI_KEY && !DEEPSEEK_KEY) { res.status(503).json({ error: "disabled", message: "لم يُضف مفتاح GEMINI_API_KEY أو DEEPSEEK_API_KEY بعد" }); return false; }
   if (!spend.allowed("text")) { res.status(503).json({ error: "budget", message: "بلغ الموقع سقف الميزانية الشهرية لـ Gemini؛ تعود الخدمة أول الشهر القادم. استعمل رابط Google في الأثناء." }); return false; }
   const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress;
   const now = Date.now(); const h = (trHits.get(ip) || []).filter(t => now - t < 60000);
@@ -226,6 +228,37 @@ async function gemini(system, user, temperature = 0.2) {
   }
   throw last;
 }
+/* DeepSeek: text-only backup for translation and the tutor (it has no speech synthesis) */
+async function deepseek(system, user, temperature = 0.2) {
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 45000);
+  try {
+    const r = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${DEEPSEEK_KEY}` },
+      body: JSON.stringify({ model: DEEPSEEK_MODEL, temperature, max_tokens: 2048, messages: [{ role: "system", content: system }, { role: "user", content: user }] })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error((j.error && j.error.message) || `DeepSeek HTTP ${r.status}`); e.status = r.status; throw e; }
+    if (j.usage) spend.record("deepseek-" + DEEPSEEK_MODEL, { promptTokenCount: j.usage.prompt_tokens, candidatesTokenCount: j.usage.completion_tokens }, "deepseek");
+    const out = String(j.choices?.[0]?.message?.content || "").trim(); if (!out) throw new Error("لم يُرجع DeepSeek نصًّا");
+    return out;
+  } catch (e) { if (e.name === "AbortError") { const t = new Error("انتهت مهلة الاتصال بـ DeepSeek"); t.status = 504; throw t; } throw e; }
+  finally { clearTimeout(to); }
+}
+let deepseekState = { ok: null, at: 0, err: "" }, geminiCoolUntil = 0;
+/* text engine: Gemini first (free tier), DeepSeek when Gemini is missing, busy or out of quota */
+async function llm(system, user, temperature = 0.2) {
+  if (GEMINI_KEY && !(DEEPSEEK_KEY && Date.now() < geminiCoolUntil)) {
+    try { return { text: await gemini(system, user, temperature), engine: "gemini" }; }
+    catch (e) { if (!DEEPSEEK_KEY) throw e; if (e.status === 429 || /quota|exhaust/i.test(e.message)) geminiCoolUntil = Date.now() + 120000; console.error("gemini failed, using deepseek:", String(e.message).slice(0, 120)); }
+  }
+  const text = await deepseek(system, user, temperature); deepseekState = { ok: true, at: Date.now(), err: "" };
+  return { text, engine: "deepseek" };
+}
+if (DEEPSEEK_KEY) setTimeout(async () => {
+  const t0 = Date.now();
+  try { const out = await deepseek(TR_SYSTEM, "Traduce al español el siguiente texto en árabe.\n\n<<<\nالسلام عليكم، كيف حالك؟\n>>>", 0.2); deepseekState = { ok: true, at: Date.now(), err: "" }; console.log(`deepseek selftest OK in ${Date.now() - t0}ms:`, out.slice(0, 80)); }
+  catch (e) { deepseekState = { ok: false, at: Date.now(), err: String(e.message).slice(0, 160) }; console.error("deepseek selftest FAILED:", e.status, e.message); }
+}, 3000);
 const TUTOR_SYSTEM = `Eres «المعلّم», un profesor de español paciente y preciso para estudiantes cuya lengua materna es el árabe, dentro de una web de dawah sunní.
 - Responde SIEMPRE en árabe estándar sencillo; escribe los ejemplos en español entre comillas «...» y su traducción árabe.
 - Sé breve y claro: máximo 180 palabras, con viñetas cortas. Adapta el nivel al indicado (MCER).
@@ -240,11 +273,11 @@ app.post("/api/tutor", async (req, res) => {
   const lv = ["A1", "A2", "B1", "B2", "C1", "C2"].includes(level) ? level : "A1"; const m = mode === "correct" ? "correct" : "explain";
   const ck = `tu:${m}:${lv}:${t}`; const cached = cacheGet(ck, 7 * DAY); if (cached) return res.json(cached);
   if (!geminiGate(req, res)) return;
-  try { const out = await gemini(TUTOR_SYSTEM, `Modo: ${m}. Nivel del alumno: ${lv}.\n\n${t}`, 0.3); const result = { text: out, model: GEMINI_MODEL }; cacheSet(ck, result); res.setHeader("Cache-Control", "no-store"); res.json(result); }
-  catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
+  try { const r = await llm(TUTOR_SYSTEM, `Modo: ${m}. Nivel del alumno: ${lv}.\n\n${t}`, 0.3); const result = { text: r.text, engine: r.engine }; cacheSet(ck, result); res.setHeader("Cache-Control", "no-store"); res.json(result); }
+  catch (e) { res.status(502).json({ error: "llm", message: e.message }); }
 });
 app.get("/api/usage", (req, res) => { res.setHeader("Cache-Control", "no-store"); res.json(spend.report()); });
-app.get("/api/translate/status", (req, res) => res.json({ enabled: !!GEMINI_KEY && spend.allowed("text"), model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : null, models: GEMINI_KEY ? GEMINI_FALLBACKS : [] }));
+app.get("/api/translate/status", (req, res) => res.json({ enabled: (!!GEMINI_KEY || !!DEEPSEEK_KEY) && spend.allowed("text"), model: GEMINI_KEY ? (geminiPreferred || GEMINI_FALLBACKS[0]) : DEEPSEEK_KEY ? DEEPSEEK_MODEL : null, models: GEMINI_KEY ? GEMINI_FALLBACKS : [], engines: { gemini: !!GEMINI_KEY, deepseek: DEEPSEEK_KEY ? (deepseekState.ok === false ? "error" : "ready") : false }, deepseek: DEEPSEEK_KEY ? deepseekState : null }));
 app.post("/api/translate", async (req, res) => {
   const { text, dir, tone } = req.body || {};
   const t = String(text || "").trim();
@@ -256,10 +289,10 @@ app.post("/api/translate", async (req, res) => {
   const task = dir === "es-ar" ? "Traduce al árabe estándar el siguiente texto en español."
     : `Traduce al español el siguiente texto en árabe. Trata al lector de ${tone === "usted" ? "usted (registro respetuoso)" : "tú (registro cercano y amable)"}.`;
   try {
-    const out = (await gemini(TR_SYSTEM, `${task}\n\n<<<\n${t}\n>>>`)).replace(/^<<<\s*|\s*>>>$/g, "");
-    const result = { text: out, model: GEMINI_MODEL, engine: "gemini" }; cacheSet(ck, result);
+    const r = await llm(TR_SYSTEM, `${task}\n\n<<<\n${t}\n>>>`); const out = r.text.replace(/^<<<\s*|\s*>>>$/g, "");
+    const result = { text: out, engine: r.engine }; cacheSet(ck, result);
     res.setHeader("Cache-Control", "no-store"); res.json(result);
-  } catch (e) { res.status(502).json({ error: "gemini", message: e.message }); }
+  } catch (e) { res.status(502).json({ error: "llm", message: e.message }); }
 });
 
 /* IslamHouse document text (PDF → text) for reading and quoting; restricted to IslamHouse Spanish files */
