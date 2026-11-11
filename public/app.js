@@ -240,9 +240,48 @@
       <section class="card journey" aria-label="رحلة المحاور"><div class="row between"><h2>رحلة المحاور: خمس مراحل</h2><a class="btn" href="#confianza">التفاصيل ←</a></div><ol class="jr">${RQ.TRUST.stages.map((st, i) => `<li style="--i:${i}"><a href="#componer"><span class="jr-n">${i + 1}</span><b>${esc(st.t)}</b><span class="muted small">${esc(st.goal)}</span></a></li>`).join("")}</ol></section>
       <div class="lx-tiles">${[["#quran", "📖", "القرآن وتفسير العشر الأخير", "تلاوة وترجمة وتفسير بالإسبانية"], ["#confianza", "🤝", "بناء الثقة", "8 مبادئ و5 مراحل وخطة شهر"], ["#preguntas", "❓", "أسئلة الباحثين", `${RQ.FAQ.length} سؤالًا بإجابات جاهزة`], ["#libros", "📚", "دليل كتب IslamHouse", `${RQ.BOOKS.length} كتابًا حسب المحاور`], ["#seguimiento", "🗓️", "متابعة المحاورين", "لا تنسَ أحدًا ولا تكرر رسالة"]].map(([h, ic, t, d]) => `<a class="lx-tile card lift" href="${h}"><span class="lx-tic">${ic}</span><b>${t}</b><span class="muted small">${d}</span></a>`).join("")}</div>
       <div class="stats" id="home-stats">${[[RQ.MSG.length, "رسالة قصيرة"], [RQ.DLG.length, "قالب محادثة"], [RQ.ART.length, "مقالة قصيرة"], [RQ.FAQ.length, "سؤالًا بإجابة جاهزة"], [RQ.QUOTES.length, "مقتطفًا من IslamHouse"], [RQ.WARN.length, "تحذيرًا للداعية"]].map((s, i) => `<div class="stat" style="--i:${i}"><b data-count="${s[0]}">${s[0]}</b><span>${s[1]}</span></div>`).join("")}</div>
+      ${dailyPanel(m)}
       <div class="two"><div><h2 style="margin-bottom:10px">رسالة اليوم</h2>${msgCard(m)}</div>
       <div class="card"><h2>كيف يعمل الموقع؟</h2><ol class="steps"><li><b>المُركِّب</b> يفهم نوع محاورك ومرحلته وموقفه، ويجمع لك خطة ورسالة ومحادثة.</li><li><b>حلّل رسالة المحاور</b>: الصق ما كتبه بالإسبانية، فيكشف الموضوع ويحذّرك من المزالق.</li><li><b>النطق</b> بأكثر من لهجة إسبانية وبسرعة تتحكم فيها، للداعية مهما كانت خبرته.</li><li><b>المكتبة</b> تجلب الآيات من QuranEnc والأحاديث من HadeethEnc والكتب من IslamHouse.</li><li><b>التحذيرات</b> تحميك من المواضيع التي تُخسرك الباحث عن الحقيقة.</li></ol></div></div>`;
   };
+
+  /* ---------- لوحة «يومي»: ما يحتاجه الداعية اليوم في نظرة واحدة (كل البيانات في جهازه) ---------- */
+  const DAILY_KEY = "rafiq-daily";
+  const loadDaily = () => { const t = new Date().toLocaleDateString("en-CA"); try { const d = JSON.parse(localStorage.getItem(DAILY_KEY) || "{}"); if (d.date === t) return d; } catch (e) { } return { date: t, done: {} }; };
+  const saveDaily = d => { try { localStorage.setItem(DAILY_KEY, JSON.stringify(d)); } catch (e) { } };
+  function dailyPanel(m) {
+    const t = new Date().toLocaleDateString("en-CA"); const D = loadDaily();
+    let L = {}; try { L = JSON.parse(localStorage.getItem("rafiq-learn") || "{}"); } catch (e) { }
+    let C = []; try { C = JSON.parse(localStorage.getItem("rafiq-contacts") || "[]"); } catch (e) { }
+    const due = C.filter(c => c.next && c.next <= t); const srsDue = Object.values(L.srs || {}).filter(v => v.d <= t).length; const xpToday = (L.days || {})[t] || 0;
+    const y = new Date(); y.setDate(y.getDate() - 1); const streak = L.streak && (L.streak.last === t || L.streak.last === y.toLocaleDateString("en-CA")) ? L.streak.n : 0;
+    const day = Math.floor(Date.now() / 86400000);
+    const refs = [...new Set(RQ.MSG.flatMap(x => x.q))].filter(r => !/-/.test(r) || +r.split(":")[1].split("-")[1] - +r.split(":")[1].split("-")[0] <= 3); const vref = refs[day % refs.length];
+    const hadRefs = [...new Set(RQ.MSG.flatMap(x => x.h))]; const href = hadRefs[day % hadRefs.length];
+    const tasks = [
+      ["msg", "أرسل رسالة اليوم لمحاور واحد على الأقل", D.done.msg, "#mensajes"],
+      ["ct", due.length ? (due.length === 1 ? `تواصل مع ${esc(due[0].n)}؛ حان موعده` : due.length === 2 ? "تواصل مع محاورَين حان موعدهما" : `تواصل مع ${due.length} محاورين حان موعدهم`) : "لا مواعيد تواصل مستحقة اليوم", !due.length || D.done.ct, "#seguimiento"],
+      ["learn", srsDue ? `راجع ${srsDue} كلمة إسبانية مستحقة` : xpToday ? "تعلّمت اليوم في الإسبانية" : "خصّص 10 دقائق للإسبانية", xpToday > 0 || D.done.learn, "#aprender"],
+      ["read", "اقرأ آية اليوم وحديث اليوم بتدبّر", D.done.read, "#home-verse"]
+    ];
+    const doneN = tasks.filter(x => x[2]).length;
+    return `<section class="card daily" id="daily"><div class="row between"><h2>📅 يومي</h2><span class="row"><span class="tag gold" title="أيام متتالية في التعلّم">🔥 ${streak}</span><span class="tag">${doneN}/${tasks.length} مهام</span></span></div>
+      <div class="daily-grid">
+        <ul class="daily-tasks">${tasks.map(([k, label, done, link]) => `<li class="${done ? "ok" : ""}"><label><input type="checkbox" data-daily="${k}"${done ? " checked" : ""}> <span>${label}</span></label><a href="${link}" class="small">افتح ←</a></li>`).join("")}</ul>
+        <div class="daily-side">
+          <div class="daily-kpi"><b>${C.length}</b><span>محاور تتابعه</span></div><div class="daily-kpi${due.length ? " warn" : ""}"><b>${due.length}</b><span>بانتظار تواصلك</span></div><div class="daily-kpi"><b>${S.favs.length}</b><span>رسالة مفضلة</span></div><div class="daily-kpi"><b>${srsDue}</b><span>كلمة للمراجعة</span></div>
+        </div></div>
+      <div class="daily-refs" id="home-verse"><div class="ref-box small" data-vref="${esc(vref)}"><b>📖 آية اليوم (${esc(vref)})</b><div class="q-skel"><i></i><i></i></div></div><div class="ref-box small" data-href="${esc(href)}"><b>📜 حديث اليوم</b><div class="q-skel"><i></i><i></i></div></div></div>
+      ${due.length ? `<p class="small"><b>حان موعد:</b> ${due.slice(0, 5).map(c => `<a href="#seguimiento">${esc(c.n)}</a>`).join("، ")}${due.length > 5 ? " …" : ""}</p>` : ""}
+    </section>`;
+  }
+  async function bindDaily() {
+    const D = loadDaily();
+    $$("[data-daily]").forEach(c => c.onchange = () => { D.done[c.dataset.daily] = c.checked; saveDaily(D); c.closest("li").classList.toggle("ok", c.checked); const n = $$("[data-daily]:checked").length; $("#daily .tag:not(.gold)").textContent = `${n}/${$$("[data-daily]").length} مهام`; if (n === $$("[data-daily]").length) toast("أنجزت مهام اليوم، بارك الله فيك"); });
+    const vb = $("[data-vref]"), hb = $("[data-href]");
+    if (vb) try { const d = await getQuran(vb.dataset.vref); const es = d.ayahs.map(a => a.text).join(" "); const k = reg({ es: `${es}\n(Corán ${vb.dataset.vref}) — ${d.translation.title}, QuranEnc.com` }); vb.innerHTML = `<b>📖 آية اليوم (${esc(vb.dataset.vref)})</b><p class="ar-text quran" style="font-size:1.15rem">${esc(d.ayahs.map(a => a.arabic).join(" "))}</p><p class="es-text" lang="es">${esc(es)}</p><span class="src">${esc(d.translation.title)}</span><div class="actions"><button type="button" data-act="say" data-k="${k}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المرجع</button><a class="btn" href="#quran/${vb.dataset.vref.split(":")[0]}/${vb.dataset.vref.split(":")[1].split("-")[0]}">اقرأ السورة</a></div>`; } catch (e) { vb.innerHTML = `<b>📖 آية اليوم</b><p class="muted small">تعذّر جلب الآية الآن.</p>`; }
+    if (hb) try { const d = await getHadith(hb.dataset.href); const k = reg({ es: `${d.text}\n— ${d.attribution || ""} (HadeethEnc.com)` }); hb.innerHTML = `<b>📜 حديث اليوم: <span lang="es">${esc(d.title || "")}</span></b><p class="ar-text">${esc(d.ar.text)}</p><p class="es-text" lang="es">${esc(d.text)}</p><span class="grade">${esc(d.ar.grade || d.grade || "")} — ${esc(d.ar.attribution || d.attribution || "")}</span><div class="actions"><button type="button" data-act="say" data-k="${k}">🔊</button><button type="button" data-act="copy" data-k="${k}">نسخ مع المصدر</button></div>`; } catch (e) { hb.innerHTML = `<b>📜 حديث اليوم</b><p class="muted small">تعذّر جلب الحديث الآن.</p>`; }
+  }
 
   V.componer = (arg) => {
     const pre = arg && RQ.SITU.some(s => s.id === arg) ? arg : "";
@@ -981,7 +1020,7 @@
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
-  const LEARN_V = 8, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
+  const LEARN_V = 9, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
@@ -1054,10 +1093,13 @@
     if (name === "seguimiento") bindSeguimiento();
     if (name === "ideas") bindIdeas();
     if (name === "quran") bindQuran(arg);
-    if (name === "inicio") countUp($("#home-stats"));
+    if (name === "inicio") { countUp($("#home-stats")); bindDaily(); }
     if (name === "preguntas") { $("#fq-q").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$("[data-fq]").forEach(c => c.hidden = q && !c.dataset.fq.includes(q)); }; if (arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "start" }); }
     if (name === "aprender") loadLearn().then(() => { if (location.hash.slice(1).split("/")[0] === "aprender") { window.LEARN.mount(view, arg); window.scrollTo({ top: 0 }); } }).catch(() => { view.innerHTML = `<p class="notice amber">تعذّر تحميل قسم التعلّم. تحقّق من الاتصال وأعد المحاولة.</p>`; });
     gemInit();
+    /* زر طباعة عائم في الصفحات التي يُطبع محتواها عادةً (دروس، مقالات، قوالب، أسئلة، رسائل مرشّحة) */
+    const printable = ["mensajes", "conversaciones", "articulos", "curso", "guia", "avisos", "preguntas", "confianza", "citas", "quran", "aprender"].includes(name);
+    $("#btn-print")?.remove(); if (printable) { const b = document.createElement("button"); b.id = "btn-print"; b.type = "button"; b.className = "btn-print"; b.title = "طباعة أو حفظ PDF"; b.textContent = "🖨"; b.onclick = () => { if (!$(".print-head")) { const h = document.createElement("div"); h.className = "print-head"; h.innerHTML = `<b>رفيق الداعية</b> — ${esc(document.title)} · ${new Date().toLocaleDateString("ar-SA-u-nu-latn")} · web-production-d19218.up.railway.app`; view.prepend(h); } window.print(); }; document.body.appendChild(b); }
     if ((name === "avisos" || name === "guia") && arg && $("#" + CSS.escape(arg))) $("#" + CSS.escape(arg)).scrollIntoView({ block: "center" });
     if (name === "curso" && arg && $("#c" + arg)) $("#c" + arg).scrollIntoView({ block: "start" });
     if (name === "ideas" && arg === "series" && $("#series")) $("#series").scrollIntoView({ block: "start" });

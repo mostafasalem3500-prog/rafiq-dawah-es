@@ -185,7 +185,7 @@
     const t = today(), dx = P.days[t] || 0, due = srsDue().length, learned = Object.keys(P.srs).length, nu = nextUnit(); const doneN = Object.keys(P.done).length;
     const nPh = L.PHRASES.reduce((a, x) => a + x.s.length, 0), nDk = L.DECKS.reduce((a, x) => a + x.w.length, 0), nIs = L.ISLAM.reduce((a, x) => a + x.w.length + x.s.length, 0);
     const mtDone = P.mt && P.mt.days && P.mt.days[t];
-    const tiles = [["metodo", "🗺️", "الطريقة الاحترافية", mtDone ? "جلسة اليوم أُنجزت ✅" : "جلسة يومية موجّهة · 20 دقيقة"], ["juegos", "🎮", "الألعاب التعليمية", "7 ألعاب: ذاكرة، مشنقة، سرعة…"], ["banco", "🏦", "بنك الأسئلة", `${(L.QBANK || []).length} سؤالًا من A1 إلى C2`], ["dele", "🎓", "الاختبارات الدولية", "DELE وSIELE: الهيكل والمحاكاة"], ["reto", "⚡", "تحدي اليوم", P.reto && P.reto[t] ? "أُنجز اليوم ✅" : "10 أسئلة + 30 نقطة"], ["islam", "🕌", "الإسبانية الشرعية والدعوية", `${nIs} مصطلحًا وجملة`], ["dialogo", "🗣️", "جمل الحوار مع غير المسلمين", `${L.DAWAH.reduce((a, x) => a + x.s.length, 0)} جملة جاهزة`], ["frases", "🗂️", "كتاب العبارات", `${nPh} عبارة يومية`], ["vocab", "🧩", "بطاقات المفردات", `${nDk} كلمة في ${L.DECKS.length} موضوعًا`], ["diccionario", "📖", "القاموس", "ابحث بالعربية أو الإسبانية"], ["errores", "🎯", "أخطائي", `${(P.miss || []).length} عنصرًا للمراجعة`], ["nivel", "🧭", "حدّد مستواك", "اختبار 20 سؤالًا"], ["repaso", "🔁", "المراجعة الذكية", due ? `${due} كلمة مستحقة اليوم` : "لا مراجعة مستحقة"], ["conv", "💬", "محادثات يومية", `${L.CONV.length} موقفًا بالصوت ولعب الأدوار`], ["verbos", "🔤", "مدرّب الأفعال", `${L.VERBS.length} فعلًا × 7 أزمنة`], ["habilidades", "🎯", "المهارات الأربع", "استماع، نطق، قراءة، كتابة"], ["abc", "🅰️", "الحروف والنطق", "دليل الأصوات للعربي"], ["ninos", "🧒", "ركن الصغار", "ألعاب بالصور والصوت"], ["tutor", "🧑‍🏫", "اسأل المعلّم", "شرح وتصحيح عبر Gemini"], ["progreso", "📊", "تقدّمي", "الإحصاءات والإعدادات"]];
+    const tiles = [["metodo", "🗺️", "الطريقة الاحترافية", mtDone ? "جلسة اليوم أُنجزت ✅" : "جلسة يومية موجّهة · 20 دقيقة"], ["juegos", "🎮", "الألعاب التعليمية", "7 ألعاب: ذاكرة، مشنقة، سرعة…"], ["banco", "🏦", "بنك الأسئلة", `${(L.QBANK || []).length} سؤالًا من A1 إلى C2`], ["dele", "🎓", "الاختبارات الدولية", "DELE وSIELE: الهيكل والمحاكاة"], ["reto", "⚡", "تحدي اليوم", P.reto && P.reto[t] ? "أُنجز اليوم ✅" : "10 أسئلة + 30 نقطة"], ["islam", "🕌", "الإسبانية الشرعية والدعوية", `${nIs} مصطلحًا وجملة`], ["dialogo", "🗣️", "جمل الحوار مع غير المسلمين", `${L.DAWAH.reduce((a, x) => a + x.s.length, 0)} جملة جاهزة`], ["frases", "🗂️", "كتاب العبارات", `${nPh} عبارة يومية`], ["vocab", "🧩", "بطاقات المفردات", `${nDk} كلمة في ${L.DECKS.length} موضوعًا`], ["diccionario", "📖", "القاموس", "ابحث بالعربية أو الإسبانية"], ["errores", "🎯", "أخطائي", `${(P.miss || []).length} عنصرًا للمراجعة`], ["nivel", "🧭", "حدّد مستواك", "اختبار تكيّفي من A1 إلى C2"], ["repaso", "🔁", "المراجعة الذكية", due ? `${due} كلمة مستحقة اليوم` : "لا مراجعة مستحقة"], ["conv", "💬", "محادثات يومية", `${L.CONV.length} موقفًا بالصوت ولعب الأدوار`], ["verbos", "🔤", "مدرّب الأفعال", `${L.VERBS.length} فعلًا × 7 أزمنة`], ["habilidades", "🎯", "المهارات الأربع", "استماع، نطق، قراءة، كتابة"], ["abc", "🅰️", "الحروف والنطق", "دليل الأصوات للعربي"], ["ninos", "🧒", "ركن الصغار", "ألعاب بالصور والصوت"], ["tutor", "🧑‍🏫", "اسأل المعلّم", "شرح وتصحيح عبر Gemini"], ["progreso", "📊", "تقدّمي", "الإحصاءات والإعدادات"]];
     return `${R.head("تعلّم الإسبانية من الصفر إلى الاحتراف", "مسار متدرج على مستويات الإطار الأوروبي المرجعي للغات (<bdi dir='ltr'>A1 → C2</bdi>)، بشرح عربي مبسّط، وصوت لكل كلمة وجملة، ونطق تقريبي بالحروف العربية، وتمارين متنوعة، ومراجعة متباعدة، ومسار خاص للداعية. يناسب الكبار والصغار، ويحفظ تقدّمك في جهازك. كل الدروس مفتوحة: ابدأ من حيث تريد، أو تخطَّ ما تعرفه باختبار قصير.")}
     <div class="lx-hero card"><div class="lx-kpis"><div><b>⭐ <span id="lx-xp">${P.xp}</span></b><span>نقاط الخبرة</span></div><div><b>🔥 ${streakNow()}</b><span>أيام متتالية</span></div><div><b>📚 ${doneN}/${L.UNITS.length}</b><span>دروس منجزة</span></div><div><b>🧠 ${learned}</b><span>كلمة في ذاكرتك</span></div></div>
       <div class="lx-goal"><span>هدف اليوم: ${Math.min(dx, P.goal)} / ${P.goal} نقطة</span><div class="lx-prog"><i style="width:${Math.min(100, Math.round(dx / P.goal * 100))}%"></i></div></div>
@@ -302,6 +302,8 @@
   /* ---------- المهارات ---------- */
   function skillsView() {
     return `${topbar("#aprender", "🎯 المهارات الأربع")}<div class="lx-tiles">
+      <button type="button" class="lx-tile card lift" data-sk="comprender"><span class="lx-tic">🎧</span><b>الاستماع (فهم)</b><span class="muted small">اسمع جملة من محادثة واختر معناها</span></button>
+      <button type="button" class="lx-tile card lift" data-sk="huecos"><span class="lx-tic">🧩</span><b>الاستماع (الكلمة الناقصة)</b><span class="muted small">اسمع واختر الكلمة التي سقطت</span></button>
       <button type="button" class="lx-tile card lift" data-sk="escuchar"><span class="lx-tic">👂</span><b>الاستماع (إملاء)</b><span class="muted small">استمع لجملة واكتبها</span></button>
       <button type="button" class="lx-tile card lift" data-sk="hablar"><span class="lx-tic">🗣️</span><b>التحدث والنطق</b><span class="muted small">${SR ? "انطق والميكروفون يقيّم" : "رتّب الجملة ثم انطقها بصوت مسموع"}</span></button>
       <button type="button" class="lx-tile card lift" data-sk="escribir"><span class="lx-tic">✍️</span><b>الكتابة</b><span class="muted small">ترجم من العربية إلى الإسبانية</span></button>
@@ -310,8 +312,16 @@
   }
   function bindSkills() {
     $$("[data-sk]").forEach(b => b.onclick = () => {
-      const lv = $("#sk-lv").value; const ss = pick(allSent(lv), 8); const k = b.dataset.sk;
-      const list = ss.map(s => k === "escuchar" ? { type: "dict", ...s } : k === "hablar" ? (SR ? { type: "speak", es: s.es } : { type: "order", ...s }) : { type: "type", ...s });
+      const lv = $("#sk-lv").value; const k = b.dataset.sk;
+      /* مادة الاستماع: سطور المحادثات اليومية (ثم الجمل) في المستوى المختار؛ وإن قلّت أُخذت من كل المستويات */
+      const convLines = lvl => (L.CONV || []).filter(c => !lvl || c.lv === lvl || (lvl === "DAWAH" && /dawah|dw|cv7|cv6/i.test(c.id))).flatMap(c => c.d.map(DL)).filter(x => x.es.split(/\s+/).length >= 3);
+      let pool = [...convLines(lv), ...allSent(lv)]; if (pool.length < 30) pool = [...convLines(""), ...allSent("")];
+      const ss = pick(pool, 8);
+      const list = ss.map(s => {
+        if (k === "comprender") { const opts = shuffle([s.ar, ...pick(pool.filter(x => x.ar !== s.ar).map(x => x.ar), 3)]); return { type: "mcq", prompt: "🎧 اسمع ثم اختر المعنى الصحيح", audio: s.es, opts, ans: opts.indexOf(s.ar), key: { es: s.es, ar: s.ar }, quiet: true, ex: s.es }; }
+        if (k === "huecos") { const w = toks(s.es); const cand = w.map((x, i) => [x, i]).filter(([x]) => /^[\p{L}]{4,}$/u.test(x.replace(/[¿¡,.!?;:«»"]/g, ""))); const [word, idx] = cand.length ? cand[Math.floor(Math.random() * cand.length)] : [w[0], 0]; const clean = word.replace(/[¿¡,.!?;:«»"]/g, ""); const others = pick([...new Set(pool.flatMap(x => toks(x.es)).map(x => x.replace(/[¿¡,.!?;:«»"]/g, "")).filter(x => /^[\p{L}]{4,}$/u.test(x) && x.toLowerCase() !== clean.toLowerCase() && Math.abs(x.length - clean.length) <= 3))], 3); const opts = shuffle([clean, ...others]); const gapped = w.map((x, i) => i === idx ? x.replace(clean, "______") : x).join(" "); return { type: "mcq", prompt: "🧩 اسمع واختر الكلمة الناقصة", audio: s.es, es: gapped, opts, ans: opts.indexOf(clean), ltr: true, key: { es: s.es, ar: s.ar }, sub: s.ar }; }
+        return k === "escuchar" ? { type: "dict", ...s } : k === "hablar" ? (SR ? { type: "speak", es: s.es } : { type: "order", ...s }) : { type: "type", ...s };
+      });
       runEx($("#sk-run"), list, (ok, total) => { $("#sk-run").innerHTML = `<div class="card lx-result"><div class="lx-em">🎯</div><h2>${ok} من ${total}</h2><button type="button" class="primary" data-xclose="1">حسنًا</button></div>`; });
       $("#sk-run").scrollIntoView({ behavior: "smooth" });
     });
@@ -363,8 +373,43 @@
   }
 
   /* ---------- تحديد المستوى واختبار المستوى ---------- */
-  function placementView() { return `${topbar("#aprender", "🧭 تحديد المستوى")}<p class="muted">20 سؤالًا متدرجًا من A1 إلى C1. أجب بما تعرف ولا تخمّن كثيرًا؛ النتيجة تقترح لك من أين تبدأ.</p><div id="pl-run"></div>`; }
+  /* اختبار تحديد المستوى التكيّفي: يبدأ من A2، ويصعد أو ينزل بحسب الإجابة، ويختار من بنك الأسئلة (660) ليختلف في كل مرة */
+  const PL_LV = ["A1", "A2", "B1", "B2", "C1", "C2"];
+  function placementView() { const adaptive = (L.QBANK || []).length > 100; return `${topbar("#aprender", "🧭 تحديد المستوى")}<p class="muted">${adaptive ? "اختبار تكيّفي من 24 سؤالًا: يبدأ متوسطًا ثم يصعب أو يسهل بحسب إجاباتك، ويغطي القواعد والمفردات والاستعمال وفهم المقروء من A1 إلى C2. أجب بما تعرف ولا تخمّن؛ وتختلف الأسئلة في كل مرة." : "20 سؤالًا متدرجًا من A1 إلى C1. أجب بما تعرف ولا تخمّن كثيرًا."}</p><div class="lx-row"><span class="muted small" id="pl-lv"></span></div><div id="pl-run"></div>`; }
   function bindPlacement() {
+    const Q = L.QBANK || [];
+    if (Q.length <= 100) return bindPlacementFixed();
+    const box = $("#pl-run"); let cur = 1, n = 0, ok = 0; const hist = [], used = new Set(); const TOTAL = 24, N_LV = PL_LV.length;
+    const pickQ = lv => { const pool = Q.filter(q => q.lv === lv && !used.has(q.id)); const q = pool[Math.floor(Math.random() * pool.length)]; if (q) used.add(q.id); return q; };
+    const estimate = () => {
+      /* المستوى المقترح: أعلى مستوى أجاب عن ≥60% من أسئلته صحيحًا، مع اعتبار المستويات الأدنى محسومة */
+      const by = PL_LV.map((lv, i) => { const h = hist.filter(x => x.lv === i); return h.length ? h.filter(x => x.ok).length / h.length : null; });
+      let lvl = 0; for (let i = 0; i < N_LV; i++) { if (by[i] === null) { if (i < cur) continue; break; } if (by[i] >= 0.6) lvl = i; else break; }
+      return lvl;
+    };
+    const step = () => {
+      if (n >= TOTAL) return finish();
+      const q = pickQ(PL_LV[cur]) || pickQ(PL_LV[Math.max(0, cur - 1)]) || pickQ(PL_LV[Math.min(N_LV - 1, cur + 1)]); if (!q) return finish();
+      $("#pl-lv").textContent = `السؤال ${n + 1} من ${TOTAL} · مستوى السؤال ${PL_LV[cur]}`;
+      runEx(box, [{ type: "mcq", prompt: `${PL_LV[cur]} · ${q.sk === "lec" ? "فهم المقروء" : q.sk === "voc" ? "مفردات" : q.sk === "uso" ? "استعمال" : "قواعد"}`, es: q.q, opts: q.o, ans: q.a, ltr: true, quiet: true, ex: q.ex }], (k) => {
+        const right = k === 1; hist.push({ lv: cur, ok: right }); n++; if (right) ok++;
+        /* صعود بعد إجابتين صحيحتين متتاليتين في المستوى نفسه، ونزول بعد خطأين */
+        const same = hist.filter(x => x.lv === cur).slice(-2);
+        if (same.length === 2 && same.every(x => x.ok) && cur < N_LV - 1) cur++; else if (same.length === 2 && same.every(x => !x.ok) && cur > 0) cur--; else if (right && n <= 4 && cur < N_LV - 1) cur++;
+        step();
+      });
+    };
+    const finish = () => {
+      const lvl = estimate(); const level = PL_LV[lvl]; P.level = level; save();
+      const u = L.UNITS.find(x => x.lv === level) || L.UNITS[0];
+      const bars = PL_LV.map((lv, i) => { const h = hist.filter(x => x.lv === i); const pc = h.length ? Math.round(h.filter(x => x.ok).length / h.length * 100) : null; return `<div class="qb-col"><span class="qb-n">${pc === null ? "—" : pc + "%"}</span><div class="qb-bar" style="--h:${pc === null ? 8 : Math.max(8, pc)}%"><i style="--a:${pc === null ? 0 : 100}%"></i></div><b>${lv}</b><span class="muted small">${h.length} س</span></div>`; }).join("");
+      box.innerHTML = `<div class="card lx-result"><div class="lx-em">🧭</div><h2>مستواك التقريبي: ${level} (${lvName(level)})</h2><p>${ok} من ${n} إجابة صحيحة.</p><div class="qb-chart" style="height:150px">${bars}</div><p class="muted small">النتيجة تقديرية لتوجيه البداية؛ كل الدروس مفتوحة ويمكنك تخطّي ما تعرفه باختبار قصير داخل كل درس.</p>
+        <div class="lx-row" style="justify-content:center"><a class="btn primary lx-big" href="#aprender/unidad/${u.id}">ابدأ: ${u.ic} ${esc(u.tar)} ←</a><a class="btn" href="#aprender/banco">تدرّب في بنك الأسئلة</a><a class="btn" href="#aprender">المسار</a></div></div>`;
+      $("#pl-lv").textContent = "";
+    };
+    step();
+  }
+  function bindPlacementFixed() {
     const qs = L.PLACEMENT.map(([q, o, a, lv]) => ({ type: "mcq", q, opts: o, ans: a, lv }));
     runEx($("#pl-run"), qs, (ok, total, misses) => {
       const order = ["A1", "A2", "B1", "B2", "C1"]; let level = "A1";
