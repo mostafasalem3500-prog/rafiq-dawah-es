@@ -80,7 +80,14 @@ LEARN.VERBS = [
   ["venir", "يأتي"], ["saber", "يعرف (معلومة)"], ["dar", "يعطي"], ["ver", "يرى"], ["poner", "يضع"], ["salir", "يخرج"], ["conocer", "يعرف (شخصًا/مكانًا)"], ["pedir", "يطلب"],
   ["dormir", "ينام"], ["pensar", "يفكر"], ["volver", "يرجع"], ["jugar", "يلعب"], ["empezar", "يبدأ"], ["sentir", "يشعر"], ["traer", "يُحضر"], ["oír", "يسمع"],
   ["hablar", "يتكلم"], ["trabajar", "يعمل"], ["estudiar", "يدرس"], ["comer", "يأكل"], ["beber", "يشرب"], ["vivir", "يعيش"], ["escribir", "يكتب"], ["aprender", "يتعلم"],
-  ["leer", "يقرأ"], ["abrir", "يفتح"], ["comprar", "يشتري"], ["viajar", "يسافر"], ["rezar", "يصلي"], ["ayudar", "يساعد"], ["creer", "يعتقد"], ["llegar", "يصل"]
+  ["leer", "يقرأ"], ["abrir", "يفتح"], ["comprar", "يشتري"], ["viajar", "يسافر"], ["rezar", "يصلي"], ["ayudar", "يساعد"], ["creer", "يعتقد"], ["llegar", "يصل"],
+  ["llevar", "يحمل / يأخذ معه"], ["dejar", "يترك"], ["parecer", "يبدو"], ["quedar", "يبقى / يتبقّى"], ["seguir", "يتبع / يواصل"], ["encontrar", "يجد"], ["llamar", "ينادي / يتصل"], ["esperar", "ينتظر / يرجو"],
+  ["buscar", "يبحث عن"], ["entrar", "يدخل"], ["perder", "يفقد / يخسر"], ["producir", "يُنتج"], ["ocurrir", "يحدث / يقع"], ["entender", "يفهم"], ["recibir", "يستلم / يتلقّى"], ["recordar", "يتذكّر"],
+  ["terminar", "يُنهي / ينتهي"], ["permitir", "يسمح"], ["aparecer", "يظهر"], ["conseguir", "يحصل على / يُحرز"], ["comenzar", "يبدأ / يشرع"], ["servir", "يخدم / ينفع"], ["sacar", "يُخرج / يستخرج"], ["necesitar", "يحتاج"],
+  ["mantener", "يحافظ على / يُبقي"], ["caer", "يسقط"], ["cambiar", "يغيّر / يبدّل"], ["crear", "يُنشئ / يبتكر"], ["construir", "يبني"], ["convertir", "يحوّل"], ["ganar", "يربح / يفوز"], ["morir", "يموت"],
+  ["aceptar", "يقبل"], ["suponer", "يفترض"], ["explicar", "يشرح"], ["preguntar", "يسأل"], ["tocar", "يلمس / يعزف"], ["reconocer", "يتعرّف على / يعترف"], ["nacer", "يُولد"], ["dirigir", "يوجّه / يدير"],
+  ["correr", "يجري"], ["pagar", "يدفع"], ["gustar", "يُعجِب"], ["escuchar", "يستمع"], ["ofrecer", "يعرض / يقدّم"], ["descubrir", "يكتشف"], ["repetir", "يكرّر"], ["valer", "يساوي / يستحق"],
+  ["enseñar", "يعلّم"], ["ayunar", "يصوم"]
 ];
 
 /* ركن الصغار: مجموعات صور محسوسة */

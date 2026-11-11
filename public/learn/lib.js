@@ -13,66 +13,99 @@
     subj: { ar: ["e", "es", "e", "emos", "éis", "en"], er: ["a", "as", "a", "amos", "áis", "an"], ir: ["a", "as", "a", "amos", "áis", "an"] }
   };
   const FUT = ["é", "ás", "á", "emos", "éis", "án"], COND = ["ía", "ías", "ía", "íamos", "íais", "ían"];
-  const STEM = { pensar: "ie", querer: "ie", empezar: "ie", sentir: "ie", venir: "ie", tener: "ie", poder: "ue", dormir: "ue", volver: "ue", jugar: "ue", pedir: "i", decir: "i" };
-  const YO = { tener: "tengo", hacer: "hago", decir: "digo", venir: "vengo", poner: "pongo", salir: "salgo", traer: "traigo", oír: "oigo", conocer: "conozco", saber: "sé", dar: "doy", ver: "veo", caber: "quepo" };
+  /* ===== جداول الشواذ (ما لا تغطيه القواعد الصرفية العامة أدناه) ===== */
+  // تغيّر الجذر في المضارع والاحتمال: e→ie / o→ue (u→ue في jugar) / e→i. أفعال ‑ir منها تأخذ جذرًا ضعيفًا (i/u) في ماضي الغائب وفي nosotros/vosotros الاحتمال
+  const STEM = {
+    pensar: "ie", querer: "ie", empezar: "ie", comenzar: "ie", sentir: "ie", venir: "ie", tener: "ie", perder: "ie", entender: "ie", convertir: "ie",
+    poder: "ue", dormir: "ue", morir: "ue", volver: "ue", encontrar: "ue", recordar: "ue", jugar: "ue",
+    pedir: "i", decir: "i", seguir: "i", servir: "i", repetir: "i"
+  };
+  // صيغة yo الشاذة (‑go وغيرها). ‑zco و‑jo و‑yo تُستنتج من القواعد العامة
+  const YO = { tener: "tengo", hacer: "hago", decir: "digo", venir: "vengo", poner: "pongo", salir: "salgo", valer: "valgo", traer: "traigo", caer: "caigo", oír: "oigo", saber: "sé", dar: "doy", ver: "veo", caber: "quepo" };
   const FULL = {
     pres: { ser: "soy eres es somos sois son", estar: "estoy estás está estamos estáis están", ir: "voy vas va vamos vais van", haber: "he has ha hemos habéis han", oír: "oigo oyes oye oímos oís oyen", dar: "doy das da damos dais dan", ver: "veo ves ve vemos veis ven" },
-    pret: { ser: "fui fuiste fue fuimos fuisteis fueron", ir: "fui fuiste fue fuimos fuisteis fueron", dar: "di diste dio dimos disteis dieron", ver: "vi viste vio vimos visteis vieron", hacer: "hice hiciste hizo hicimos hicisteis hicieron", leer: "leí leíste leyó leímos leísteis leyeron", oír: "oí oíste oyó oímos oísteis oyeron", creer: "creí creíste creyó creímos creísteis creyeron" },
+    pret: { ser: "fui fuiste fue fuimos fuisteis fueron", ir: "fui fuiste fue fuimos fuisteis fueron", dar: "di diste dio dimos disteis dieron", ver: "vi viste vio vimos visteis vieron" },
     impf: { ser: "era eras era éramos erais eran", ir: "iba ibas iba íbamos ibais iban", ver: "veía veías veía veíamos veíais veían" },
     subj: { ser: "sea seas sea seamos seáis sean", ir: "vaya vayas vaya vayamos vayáis vayan", estar: "esté estés esté estemos estéis estén", dar: "dé des dé demos deis den", saber: "sepa sepas sepa sepamos sepáis sepan", haber: "haya hayas haya hayamos hayáis hayan" }
   };
-  const STRONG = { tener: "tuv", estar: "estuv", poder: "pud", poner: "pus", saber: "sup", querer: "quis", venir: "vin", decir: "dij", traer: "traj", conducir: "conduj", haber: "hub" };
-  const FSTEM = { tener: "tendr", poder: "podr", querer: "querr", decir: "dir", hacer: "har", saber: "sabr", poner: "pondr", salir: "saldr", venir: "vendr", haber: "habr" };
-  const PART = { hacer: "hecho", decir: "dicho", ver: "visto", poner: "puesto", volver: "vuelto", escribir: "escrito", abrir: "abierto", romper: "roto", morir: "muerto", leer: "leído", oír: "oído", creer: "creído", traer: "traído" };
+  // الماضي القوي (بلا نبر على النهاية): جذر + e/iste/o/imos/isteis/ieron (‑eron بعد j، ‑zo بعد c: hizo). أفعال ‑ducir تُستنتج (produj…)
+  const STRONG = { tener: "tuv", estar: "estuv", poder: "pud", poner: "pus", saber: "sup", caber: "cup", querer: "quis", venir: "vin", decir: "dij", traer: "traj", hacer: "hic", haber: "hub" };
+  const FSTEM = { tener: "tendr", poder: "podr", querer: "querr", decir: "dir", hacer: "har", saber: "sabr", caber: "cabr", poner: "pondr", salir: "saldr", valer: "valdr", venir: "vendr", haber: "habr" };
+  // اسم المفعول الشاذ. leído/caído/oído/construido تُستنتج من القاعدة
+  const PART = { hacer: "hecho", decir: "dicho", ver: "visto", poner: "puesto", volver: "vuelto", escribir: "escrito", abrir: "abierto", cubrir: "cubierto", romper: "roto", morir: "muerto" };
+  // الأفعال المركّبة ترث شواذ أصلها: mantener←tener، suponer←poner، conseguir←seguir، descubrir←cubrir…
+  const BASES = ["tener", "poner", "venir", "hacer", "traer", "caer", "salir", "valer", "seguir", "volver", "pedir", "sentir", "dormir", "cubrir", "abrir", "escribir"];
+  const split = verb => { for (const b of BASES) if (verb.length > b.length && verb.endsWith(b)) return [verb.slice(0, -b.length), b]; return null; };
+  const kind = verb => { if (STEM[verb]) return STEM[verb]; const c = split(verb); return c ? STEM[c[1]] : undefined; };
+  const form = (T, verb) => { if (T[verb]) return T[verb]; const c = split(verb); return c && T[c[1]] ? c[0] + T[c[1]] : undefined; };
+  const strong = verb => form(STRONG, verb) || (/ducir$/.test(verb) ? verb.replace(/ducir$/, "duj") : undefined);
+  const inf = verb => verb.replace("ír", "ir");
+
   const lastIdx = (s, v) => s.lastIndexOf(v);
-  function changeStem(stem, kind, verb) {
-    if (verb === "jugar") return stem.replace(/u(?=[^u]*$)/, "ue");
-    const v = kind === "ue" ? "o" : "e"; const i = lastIdx(stem, v); if (i < 0) return stem;
-    return stem.slice(0, i) + kind + stem.slice(i + 1);
+  function changeStem(stem, k) { // الجذر القوي (المنبور): pens→piens، dorm→duerm، jug→jueg، ped→pid
+    const v = k === "ue" ? (stem.includes("o") ? "o" : "u") : "e"; const i = lastIdx(stem, v); if (i < 0) return stem;
+    return stem.slice(0, i) + k + stem.slice(i + 1);
   }
-  const weakIr = (stem, verb) => { // e→i / o→u للأفعال ‑ir المتغيرة الجذر
-    if (!verb.endsWith("ir") || !STEM[verb]) return stem;
-    const v = STEM[verb] === "ue" ? "o" : "e"; const i = lastIdx(stem, v); if (i < 0) return stem;
+  const weakIr = (stem, verb) => { // e→i / o→u للأفعال ‑ir المتغيرة الجذر (sintió، durmamos، sigamos)
+    const k = kind(verb); if (!inf(verb).endsWith("ir") || !k) return stem;
+    const v = k === "ue" ? "o" : "e"; const i = lastIdx(stem, v); if (i < 0) return stem;
     return stem.slice(0, i) + (v === "o" ? "u" : "i") + stem.slice(i + 1);
   };
-  const spell = (stem, ending) => { // ‑car/‑gar/‑zar أمام e
-    if (!/^[eé]/.test(ending)) return stem + ending;
-    if (stem.endsWith("c")) return stem.slice(0, -1) + "qu" + ending;
-    if (stem.endsWith("g")) return stem + "u" + ending;
-    if (stem.endsWith("z")) return stem.slice(0, -1) + "c" + ending;
-    return stem + ending;
-  };
+  /* ضمّ الجذر إلى النهاية مع التغييرات الإملائية حسب صنف الفعل */
+  function join(stem, e, verb) {
+    const v = inf(verb);
+    if (/^[eé]/.test(e) && v.endsWith("ar")) { // ‑car/‑gar/‑zar أمام e: busqué، pague، empiece
+      if (stem.endsWith("c")) return stem.slice(0, -1) + "qu" + e;
+      if (stem.endsWith("g")) return stem + "u" + e;
+      if (stem.endsWith("z")) return stem.slice(0, -1) + "c" + e;
+    }
+    if (/^[oaóá]/.test(e) && /[ei]r$/.test(v)) {
+      if (/g[ei]r$/.test(v) && stem.endsWith("g")) return stem.slice(0, -1) + "j" + e; // ‑ger/‑gir: dirijo، dirija
+      if (/gu[ei]r$/.test(v) && stem.endsWith("gu")) return stem.slice(0, -1) + e; // ‑guir: sigo، consiga
+      if (/[aeiou]c[ei]r$/.test(v) && /[aeiou]c$/.test(stem)) return stem.slice(0, -1) + "zc" + e; // ‑cer/‑cir بعد حرف علة: conozco، produzca
+      if (/[^aeiou]c[ei]r$/.test(v) && stem.endsWith("c")) return stem.slice(0, -1) + "z" + e; // vencer → venzo
+    }
+    if (/^[oeaóéá]/.test(e) && /[^gq]uir$/.test(v) && stem.endsWith("u")) return stem + "y" + e; // ‑uir: construyo، construya
+    return stem + e;
+  }
   function participle(verb) {
-    if (PART[verb]) return PART[verb];
+    verb = inf(verb.trim().toLowerCase());
+    const p = form(PART, verb); if (p) return p;
     const t = verb.slice(-2), st = verb.slice(0, -2);
-    return st + (t === "ar" ? "ado" : "ido");
+    return st + (t === "ar" ? "ado" : (/[aeo]$/.test(st) ? "ído" : "ido")); // leído، caído، oído؛ construido
   }
   function conj(verb, tense) {
-    verb = verb.trim().toLowerCase(); const t = verb.slice(-2).replace("ír", "ir"), st = verb.slice(0, -2);
+    verb = verb.trim().toLowerCase(); const t = inf(verb.slice(-2)), st = verb.slice(0, -2);
     if (FULL[tense] && FULL[tense][verb]) return FULL[tense][verb].split(" ");
     if (tense === "perf") return FULL.pres.haber.split(" ").map(h => h + " " + participle(verb));
-    if (tense === "fut" || tense === "cond") { const s = FSTEM[verb] || verb.replace("ír", "ir"); return (tense === "fut" ? FUT : COND).map(e => s + e); }
+    if (tense === "fut" || tense === "cond") { const s = form(FSTEM, verb) || inf(verb); return (tense === "fut" ? FUT : COND).map(e => s + e); }
     if (tense === "impf") return END.impf[t].map(e => st + e);
+    const k = kind(verb), yo = form(YO, verb);
     if (tense === "pres") {
       return END.pres[t].map((e, i) => {
-        if (i === 0 && YO[verb]) return YO[verb];
-        const s = STEM[verb] && i !== 3 && i !== 4 ? changeStem(st, STEM[verb], verb) : st; return s + e;
+        if (i === 0 && yo) return yo;
+        const s = k && i !== 3 && i !== 4 ? changeStem(st, k) : st; return join(s, e, verb);
       });
     }
     if (tense === "pret") {
-      if (STRONG[verb]) { const s = STRONG[verb]; const j = s.endsWith("j"); return ["e", "iste", "o", "imos", "isteis", j ? "eron" : "ieron"].map(e => s + e); }
+      const s = strong(verb);
+      if (s) return ["e", "iste", "o", "imos", "isteis", s.endsWith("j") ? "eron" : "ieron"].map((e, i) => i === 2 && s.endsWith("c") ? s.slice(0, -1) + "zo" : s + e);
       return END.pret[t].map((e, i) => {
-        if (t === "ar" && i === 0) return spell(st, "é");
-        const s = (i === 2 || i === 5) ? weakIr(st, verb) : st; return s + e;
+        const stem = (i === 2 || i === 5) ? weakIr(st, verb) : st;
+        if (t !== "ar") {
+          const vowel = /[aeiouáéíóú]$/.test(stem) && !/[gq]u$/.test(stem); // جذر ينتهي بحرف علة (le‑, ca‑, o‑, constru‑) وليس gu/qu
+          if (vowel && (i === 2 || i === 5)) e = e.replace(/^i/, "y"); // leyó، cayeron، construyó
+          if (/[aeo]$/.test(stem) && /^i[sm]/.test(e)) e = "í" + e.slice(1); // leíste، caímos، oísteis
+        }
+        return join(stem, e, verb);
       });
     }
     if (tense === "subj") {
-      const yo = conj(verb, "pres")[0]; let base = yo.endsWith("o") ? yo.slice(0, -1) : st;
+      const base = yo || conj(verb, "pres")[0]; const b = base.endsWith("o") ? base.slice(0, -1) : st;
       return END.subj[t].map((e, i) => {
-        let s = base;
-        if (i === 3 || i === 4) { s = YO[verb] ? base : st; if (t === "ir" && STEM[verb] && !YO[verb]) s = weakIr(st, verb); }
-        else if (t === "ir" && STEM[verb] === "i" && !YO[verb]) s = weakIr(st, verb);
-        return t === "ar" ? spell(s, e) : s + e;
+        let s = b;
+        if ((i === 3 || i === 4) && k && !yo) s = t === "ir" ? weakIr(st, verb) : st; // pensemos، durmamos، sigamos — لكن tengamos
+        return join(s, e, verb);
       });
     }
     return [];

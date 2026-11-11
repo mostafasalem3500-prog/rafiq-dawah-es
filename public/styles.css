@@ -369,9 +369,9 @@ body:has(#player:not([hidden])) main { padding-bottom: 110px; }
 .q-bism { font-family: "Amiri Quran", "Amiri", serif; font-size: 1.7rem; text-align: center; padding: 16px; line-height: 2.2; color: var(--green); }
 .q-aya { padding: 14px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; transition: background .3s; scroll-margin: 120px; }
 .q-aya.q-now { background: var(--gold-soft); }
-.q-ar { font-family: "Amiri Quran", "Amiri", serif; font-size: 1.65rem; line-height: 2.3; text-align: start; }
+.q-ar { font-family: "Amiri Quran", "Amiri", serif; font-size: calc(1.65rem * var(--qfs, 1)); line-height: 2.3; text-align: start; }
 .q-num { font-family: "Amiri", serif; color: var(--gold); font-size: 1.1rem; white-space: nowrap; }
-.q-es { font-family: var(--es); font-size: 1.05rem; line-height: 1.75; text-align: left; }
+.q-es { font-family: var(--es); font-size: calc(1.05rem * var(--qfs, 1)); line-height: 1.75; text-align: left; }
 .q-ref { color: var(--green-2); font-family: var(--ar); font-size: .85rem; margin-inline-end: 6px; }
 .q-fn summary { cursor: pointer; color: var(--muted); }
 .q-fn p { text-align: left; font-family: var(--es); }
@@ -564,3 +564,7 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
 .dl-part .row.between > * { min-width: 0; overflow-wrap: anywhere; }
 .dl-info p, .dl-siele p, .dl-info li, .dl-siele li, .lx .card p { overflow-wrap: anywhere; }
 .lx .card li, .lx .card a, .card .src, .card .small a { overflow-wrap: anywhere; }
+
+[data-qmark][aria-pressed="true"] { background: var(--gold-soft); border-color: var(--gold-bright); }
+
+[tabindex="-1"]:focus { outline: none; }

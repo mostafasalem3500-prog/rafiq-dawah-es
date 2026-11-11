@@ -6,7 +6,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "check": "node scripts/check-data.js && node scripts/check-learn.js"
+    "check": "node scripts/check-data.js && node scripts/check-learn.js && node scripts/check-verbs.js --quiet",
+    "check:verbs": "node scripts/check-verbs.js"
   },
   "engines": {
     "node": ">=20"

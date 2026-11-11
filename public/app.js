@@ -210,7 +210,7 @@
   const wa = t => `https://wa.me/?text=${encodeURIComponent(t)}`;
   function actions(o, extra = "") {
     const k = reg(o);
-    if (o.id) extra = `<button type="button" data-fav="${o.id}" aria-pressed="${S.favs.includes(o.id)}" title="حفظ في المفضلة">${S.favs.includes(o.id) ? "★ محفوظة" : "☆ احفظ"}</button>${/^m[a-e]?\d/.test(o.id) ? `<a class="btn" href="#tarjetas/${o.id}">🖼 بطاقة</a>` : ""}` + extra;
+    if (o.id) extra = `<button type="button" data-fav="${o.id}" aria-pressed="${S.favs.includes(o.id)}" title="حفظ في المفضلة">${S.favs.includes(o.id) ? "★ محفوظة" : "☆ احفظ"}</button>${/^m[a-e]?\d/.test(o.id) ? `<a class="btn" href="#tarjetas/${o.id}">🖼 بطاقة</a><button type="button" data-link="mensajes/${o.id}" title="نسخ رابط هذه الرسالة لمشاركته مع فريقك">🔗</button>` : ""}` + extra;
     return `<div class="actions"><button type="button" data-act="say" data-k="${k}">🔊 استمع</button>${o.ar ? `<button type="button" data-act="say-ar" data-k="${k}">🔊 المعنى</button>` : ""}<button type="button" data-act="copy" data-k="${k}">نسخ</button>${(o.q && o.q.length) || (o.h && o.h.length) ? `<button type="button" data-act="copyref" data-k="${k}">نسخ مع الآية والحديث</button>` : ""}<a class="btn" href="${wa(o.es)}" target="_blank" rel="noopener">واتساب</a>${extra}</div>`;
   }
   /* البحث: كلمات مطوية (بلا تشكيل ولا علامات) ومطابقة كل الكلمات، وتمييز الكلمات المطابقة */
@@ -976,7 +976,8 @@
           <div class="field"><label for="q-r">القارئ</label><select id="q-r">${RQ.RECITERS.map(([k, n]) => `<option value="${k}"${k === (S.qrec || RQ.RECITERS[0][0]) ? " selected" : ""}>${n}</option>`).join("")}</select></div>
           <div class="field"><label for="q-f">بحث داخل السورة</label><input type="search" id="q-f" placeholder="كلمة إسبانية أو عربية…" dir="auto"></div>
         </div>
-        <div class="row" style="margin-top:10px"><button type="button" class="primary" id="q-playall">▶ استمع للسورة</button><label class="small"><input type="checkbox" id="q-sh-ar" checked> النص العربي</label><label class="small"><input type="checkbox" id="q-sh-es" checked> الإسبانية</label><button type="button" id="q-prev">→ السورة السابقة</button><button type="button" id="q-next">السورة التالية ←</button></div>
+        <div class="row" style="margin-top:10px"><button type="button" class="primary" id="q-playall">▶ استمع للسورة</button><label class="small"><input type="checkbox" id="q-sh-ar" checked> النص العربي</label><label class="small"><input type="checkbox" id="q-sh-es" checked> الإسبانية</label><span class="row" role="group" aria-label="حجم الخط"><button type="button" id="q-fs-" title="تصغير الخط">A−</button><button type="button" id="q-fs+" title="تكبير الخط">A+</button></span><button type="button" id="q-prev">→ السورة السابقة</button><button type="button" id="q-next">السورة التالية ←</button></div>
+        ${S.qmark ? `<p class="small"><a class="btn" href="#quran/${S.qmark.s}/${S.qmark.a}">🔖 تابع من حيث توقفت: سورة ${esc(RQ.SURAS[S.qmark.s - 1][0])}، الآية ${S.qmark.a}</a></p>` : ""}
         <details class="q-ten"><summary>سور العشر الأخير — اختصار سريع</summary><div class="q-chips">${RQ.SURAS.map((x, i) => i >= 57 ? `<a class="chip" href="#quran/${i + 1}">${x[0]}</a>` : "").join("")}</div></details>
       </section>
       <div id="q-out" aria-live="polite"></div>
@@ -991,6 +992,7 @@
     $("#q-t").onchange = e => { S.qtr = e.target.value; saveS(); load(); };
     $("#q-r").onchange = e => { S.qrec = e.target.value; saveS(); qStop(); };
     $("#q-sh-ar").onchange = e => $("#q-out").classList.toggle("q-no-ar", !e.target.checked);
+    const fs = d => { S.qfs = Math.min(1.8, Math.max(0.7, +((S.qfs || 1) + d).toFixed(2))); saveS(); $("#q-out").style.setProperty("--qfs", S.qfs + ""); }; $("#q-fs-").onclick = () => fs(-0.1); $("#q-fs\\+").onclick = () => fs(0.1);
     $("#q-sh-es").onchange = e => $("#q-out").classList.toggle("q-no-es", !e.target.checked);
     $("#q-f").oninput = e => { const q = e.target.value.trim().toLowerCase(); $$(".q-aya").forEach(x => x.hidden = q && !x.textContent.toLowerCase().includes(q)); };
     $("#q-playall").onclick = () => { if (QA.cont) return qStop(); const first = $$(".q-aya").find(x => !x.hidden); if (first) qPlay(sura, +first.dataset.aya, true); };
@@ -1003,9 +1005,11 @@
         let bism = ""; if (sura !== 1 && sura !== 9) { try { const b = await api("/api/quran/1/1"); bism = `<p class="q-bism" lang="ar" translate="no">${esc(b.ayahs[0].arabic)}</p>`; } catch (e) { } }
         out.innerHTML = `<section class="card q-sura"><header class="q-sh"><span class="q-sn">${arNum(sura)}</span><div><h2>سورة ${meta[0]}</h2><p class="muted small"><bdi lang="es">${meta[1]}</bdi> · ${meta[3] === "m" ? "مكية" : "مدنية"} · ${arNum(meta[2])} آية${sura >= 58 ? " · من العشر الأخير" : ""}</p></div><span class="tag">${tr[1]}</span></header>${bism}
           ${j.ayahs.map(a => { const ref = `${sura}:${a.aya}`; const cite = `${a.arabic}\n«${a.text}»\n(Corán ${ref}) — ${tr[2]}, QuranEnc.com`; return `<article class="q-aya" id="a-${a.aya}" data-aya="${a.aya}"><p class="q-ar" lang="ar" translate="no">${esc(a.arabic)} <span class="q-num">﴿${arNum(a.aya)}﴾</span></p><p class="q-es" lang="es" dir="ltr" translate="no"><b class="q-ref">${ref}</b> ${esc(a.text)}</p>${a.footnotes ? `<details class="q-fn small"><summary>${key === "spanish_mokhtasar" ? "فوائد وتعليقات" : "حواشي المترجم"}</summary><p lang="es" dir="ltr">${esc(a.footnotes)}</p></details>` : ""}
-            <div class="actions"><button type="button" data-qplay="${a.aya}">▶ التلاوة</button><button type="button" data-act="say" data-k="${reg({ es: a.text })}">🔊 الإسبانية</button><button type="button" data-act="copy" data-k="${reg({ es: cite })}">نسخ مع المرجع</button><a class="btn" href="${wa(cite)}" target="_blank" rel="noopener">واتساب</a></div></article>`; }).join("")}
+            <div class="actions"><button type="button" data-qplay="${a.aya}">▶ التلاوة</button><button type="button" data-qmark="${a.aya}" title="علّم هذه الآية لتتابع منها لاحقًا"${S.qmark && S.qmark.s === sura && S.qmark.a === a.aya ? ' aria-pressed="true"' : ""}>🔖</button><button type="button" data-act="say" data-k="${reg({ es: a.text })}">🔊 الإسبانية</button><button type="button" data-act="copy" data-k="${reg({ es: cite })}">نسخ مع المرجع</button><a class="btn" href="${wa(cite)}" target="_blank" rel="noopener">واتساب</a></div></article>`; }).join("")}
           <p class="muted small">المصدر: <a href="${esc(j.url)}" target="_blank" rel="noopener">QuranEnc.com — ${esc(j.translation.title && j.translation.title !== key ? j.translation.title : tr[2])}</a>${j.translation.version ? ` (الإصدار ${esc(j.translation.version)})` : ""}. لا تخلو ترجمة لمعاني القرآن من القصور؛ والترجمة تعبّر عن فهم مترجميها.</p></section>`;
         $$("[data-qplay]", out).forEach(b => b.onclick = () => qPlay(sura, +b.dataset.qplay, false));
+        $$("[data-qmark]", out).forEach(b => b.onclick = () => { S.qmark = { s: sura, a: +b.dataset.qmark }; saveS(); $$("[data-qmark]", out).forEach(x => x.removeAttribute("aria-pressed")); b.setAttribute("aria-pressed", "true"); toast(`عُلِّمت الآية ${b.dataset.qmark}؛ ستجد زر «تابع من حيث توقفت» أعلى الصفحة`); });
+        out.style.setProperty("--qfs", (S.qfs || 1) + "");
         $("#q-f").dispatchEvent(new Event("input"));
         if (a0 && $("#a-" + a0)) { $("#a-" + a0).classList.add("q-now"); $("#a-" + a0).scrollIntoView({ block: "center" }); }
       } catch (e) { out.innerHTML = `<p class="notice amber">تعذّر جلب السورة من QuranEnc الآن (${esc(e.message)}). أعد المحاولة بعد قليل.</p>`; }
@@ -1020,11 +1024,11 @@
   /* ---------- Spanish course (lazy) ---------- */
   V.aprender = () => `<div class="head"><h1>تعلّم الإسبانية</h1><p>جارٍ تحميل الدروس…</p></div>`;
   let learnP = null;
-  const LEARN_V = 9, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
+  const LEARN_V = 10, LEARN_FILES = ["lib", "a1", "a2", "b1", "c1", "c2", "units-more", "units-more2", "extra", "read-b", "phrases-a", "phrases-b", "phrases-c", "phrases-d", "islam", "dawah", "vocab", "vocab-b", "vocab-c", "vocab-d", "conv-b", "conv-c", "qbank", "exams", "engine", "play", "metodo"];
   function loadLearn() {
     if (window.LEARN && window.LEARN.mount) return Promise.resolve();
     if (learnP) return learnP;
-    const files = LEARN_FILES, optional = new Set(["c2", "units-more", "units-more2", "vocab-c", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play", "phrases-d", "vocab-d", "conv-c", "metodo"]);
+    const files = LEARN_FILES, optional = new Set(["c2", "units-more", "units-more2", "vocab-c", "phrases-a", "phrases-b", "phrases-c", "islam", "dawah", "vocab", "vocab-b", "conv-b", "qbank", "exams", "play", "phrases-d", "vocab-d", "conv-c", "metodo", "read-b"]);
     learnP = files.reduce((p, f) => p.then(() => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = `/learn/${f}.js?v=${LEARN_V}`; sc.onload = res; sc.onerror = optional.has(f) ? res : rej; document.head.appendChild(sc); })), Promise.resolve());
     learnP.catch(() => { learnP = null; });
     return learnP;
@@ -1105,6 +1109,8 @@
     if (name === "ideas" && arg === "series" && $("#series")) $("#series").scrollIntoView({ block: "start" });
     if (!["mensajes", "avisos", "guia", "curso", "ideas", "aprender", "preguntas"].includes(name) || !arg || ["nuevo", "dai"].includes(arg)) window.scrollTo({ top: 0 });
     $("#q").value = name === "buscar" ? decodeURIComponent(arg || "") : "";
+    /* إدارة التركيز عند تغيّر الصفحة: قارئ الشاشة يبدأ من عنوان الصفحة لا من أعلى الوثيقة */
+    if (!arg && name !== "buscar") { const h1 = view.querySelector("h1,h2"); if (h1 && document.activeElement !== $("#q")) { h1.setAttribute("tabindex", "-1"); h1.focus({ preventScroll: true }); } }
     if (name === "buscar" && $("#sr-chips")) { $$("#sr-chips [data-ty]").forEach(b => b.onclick = () => { const ty = b.dataset.ty; $$("#sr-chips [data-ty]").forEach(x => x.setAttribute("aria-pressed", x === b)); $$("#sr-list [data-ty]").forEach(c => c.hidden = ty ? c.dataset.ty !== ty : c.hasAttribute("data-late")); const m = $("#sr-more"); if (m) m.hidden = !!ty; }); const m = $("#sr-more"); if (m) m.onclick = () => { $$("#sr-list [data-late]").forEach(c => { c.hidden = false; c.removeAttribute("data-late"); }); m.remove(); }; }
   }
   /* لفّ رمز ﷺ في عنصر مستقل حتى لا يكسر خط النص العربي المحيط */
@@ -1127,6 +1133,7 @@
     const rb = e.target.closest(".ref-btn"); if (rb) { toggleRef(rb); return; }
     const fb = e.target.closest("[data-fav]"); if (fb) { const id = fb.dataset.fav; S.favs = S.favs.includes(id) ? S.favs.filter(x => x !== id) : [...S.favs, id]; saveS(); fb.setAttribute("aria-pressed", S.favs.includes(id)); fb.textContent = S.favs.includes(id) ? "★ محفوظة" : "☆ احفظ"; toast(S.favs.includes(id) ? "حُفظت في المفضلة" : "أزيلت من المفضلة"); return; }
     const gb = e.target.closest(".gem-btn"); if (gb) { runGem(gb); return; }
+    const lk = e.target.closest("[data-link]"); if (lk) { copy(`${location.origin}${location.pathname}#${lk.dataset.link}`, "نُسخ رابط العنصر"); return; }
     const fs = e.target.closest("[data-fsi]"); if (fs) { MF.si = fs.dataset.fsi; MF.q = ""; MF.n = 30; if (location.hash.startsWith("#mensajes")) { const q = $("#m-q"); if (q) q.value = ""; renderMsgs(); window.scrollTo({ top: 0, behavior: "smooth" }); } else location.hash = "mensajes/si:" + fs.dataset.fsi; return; }
     const b = e.target.closest("[data-act]"); if (!b) return;
     const o = REG.get(b.dataset.k); if (!o) return;
